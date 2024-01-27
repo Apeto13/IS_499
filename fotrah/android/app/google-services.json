@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "243352862220",
+    "project_id": "fotarh-956e1",
+    "storage_bucket": "fotarh-956e1.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:243352862220:android:27855cb770fd9a601ef829",
+        "android_client_info": {
+          "package_name": "com.project.fotrah"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLwsp96qbOMvvtVkFANlm8BtgBGuJP5TQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
