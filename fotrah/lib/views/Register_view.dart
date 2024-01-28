@@ -1,22 +1,26 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:fotrah/firebase_options.dart';
 
-class LoginView extends StatefulWidget {
-  const LoginView({Key? key}) : super(key: key);
+class RegisterView extends StatefulWidget {
+  const RegisterView({super.key});
 
   @override
-  State<LoginView> createState() => _LoginViewState();
+  _RegisterViewState createState() => _RegisterViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _RegisterViewState extends State<RegisterView> {
+  late final TextEditingController _userName;
+  late final TextEditingController _phoneNumber;
   late final TextEditingController _email;
   late final TextEditingController _password;
 
   @override
   void initState() {
+    _userName = TextEditingController();
+    _phoneNumber = TextEditingController();
     _email = TextEditingController();
     _password = TextEditingController();
     super.initState();
@@ -24,6 +28,8 @@ class _LoginViewState extends State<LoginView> {
 
   @override
   void dispose() {
+    _userName.dispose();
+    _phoneNumber.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -33,10 +39,10 @@ class _LoginViewState extends State<LoginView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login'),
+        title: const Text('Register'),
         backgroundColor: Colors.blue,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: FutureBuilder(
             future: Firebase.initializeApp(
@@ -48,6 +54,26 @@ class _LoginViewState extends State<LoginView> {
                   return Column(
                     children: [
                       SizedBox(height: 150.0),
+                      TextField(
+                        controller: _userName,
+                        decoration: InputDecoration(
+                          hintText: '  username',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(25.0),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 5.0),
+                      TextField(
+                          controller: _phoneNumber,
+                          decoration: InputDecoration(
+                            hintText: '  Phone Number',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25.0),
+                            ),
+                          ),
+                          keyboardType: TextInputType.phone),
+                      SizedBox(height: 5.0),
                       TextField(
                         controller: _email,
                         decoration: InputDecoration(
@@ -78,22 +104,25 @@ class _LoginViewState extends State<LoginView> {
                         onPressed: () async {
                           final email = _email.text;
                           final password = _password.text;
-                          try {
+                          try{
                             final userCredential = await FirebaseAuth.instance
-                                .signInWithEmailAndPassword(
-                              email: email,
-                              password: password,
-                            );
-                            //print(userCredential);
+                              .createUserWithEmailAndPassword(
+                            email: email,
+                            password: password,
+                          );
+                          print(userCredential);
                           } on FirebaseAuthException catch (e){
-                            //print(e.code);
-                            if(e.code == "invalid-credential")
-                              print("invalid credential");
-                            else
-                              print(e.code);
-                          } 
+                            print(e.code);
+                            if(e.code == 'weak-password')
+                              print("Weak password! ");
+                            else if (e.code == "email-already-in-use")
+                              print("This email is already in use! ");
+                            else if (e.code == "invalid-email")
+                              print("This email is invaild! ");
+                            
+                          }
                         },
-                        child: const Text('Login'),
+                        child: const Text('Register'),
                       ),
                     ],
                   );
