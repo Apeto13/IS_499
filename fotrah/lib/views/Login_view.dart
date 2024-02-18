@@ -1,8 +1,8 @@
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:fotrah/firebase_options.dart';
+import 'package:fotrah/views/Register_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({Key? key}) : super(key: key);
@@ -33,75 +33,69 @@ class _LoginViewState extends State<LoginView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login'),
+        title: const Text("Login"),
         backgroundColor: Colors.blue,
       ),
-      body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: FutureBuilder(
-            future: Firebase.initializeApp(
-              options: DefaultFirebaseOptions.currentPlatform,
+      body: Column(
+        children: [
+          SizedBox(height: 150.0),
+          TextField(
+            controller: _email,
+            decoration: InputDecoration(
+              hintText: '  Email',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+              ),
             ),
-            builder: (context, snapshot) {
-              switch (snapshot.connectionState) {
-                case ConnectionState.done:
-                  return Column(
-                    children: [
-                      SizedBox(height: 150.0),
-                      TextField(
-                        controller: _email,
-                        decoration: InputDecoration(
-                          hintText: '  Email',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
-                        ),
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      SizedBox(height: 5.0),
-                      TextField(
-                        controller: _password,
-                        decoration: InputDecoration(
-                          hintText: '  Password',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
-                        ),
-                        obscureText: true,
-                        enableSuggestions: false,
-                        autocorrect: false,
-                      ),
-                      SizedBox(height: 5.0),
-                      TextButton(
-                        onPressed: () async {
-                          final email = _email.text;
-                          final password = _password.text;
-                          try {
-                            final userCredential = await FirebaseAuth.instance
-                                .signInWithEmailAndPassword(
-                              email: email,
-                              password: password,
-                            );
-                            //print(userCredential);
-                          } on FirebaseAuthException catch (e){
-                            //print(e.code);
-                            if(e.code == "invalid-credential")
-                              print("invalid credential");
-                            else
-                              print(e.code);
-                          } 
-                        },
-                        child: const Text('Login'),
-                      ),
-                    ],
-                  );
-                default:
-                  return const Text('Loading...');
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          SizedBox(height: 5.0),
+          TextField(
+            controller: _password,
+            decoration: InputDecoration(
+              hintText: '  Password',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+              ),
+            ),
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+          ),
+          SizedBox(height: 5.0),
+          TextButton(
+            onPressed: () async {
+              final email = _email.text;
+              final password = _password.text;
+              try {
+                final userCredential =
+                    await FirebaseAuth.instance.signInWithEmailAndPassword(
+                  email: email,
+                  password: password,
+                );
+                print(userCredential);
+              } on FirebaseAuthException catch (e) {
+                //print(e.code);
+                if (e.code == "invalid-credential")
+                  print("invalid credential");
+                else
+                  print(e.code);
               }
             },
-          )),
+            child: const Text('Login'),
+          ),
+          TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/Register',
+                  (route) => false,
+                );
+              },
+              child: const Text("Register"))
+        ],
+      ),
     );
   }
 }

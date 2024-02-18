@@ -39,98 +39,91 @@ class _RegisterViewState extends State<RegisterView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Register'),
+        title: const Text("Register"),
         backgroundColor: Colors.blue,
       ),
-      body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: FutureBuilder(
-            future: Firebase.initializeApp(
-              options: DefaultFirebaseOptions.currentPlatform,
+      body: Column(
+        children: [
+          SizedBox(height: 150.0),
+          TextField(
+            controller: _userName,
+            decoration: InputDecoration(
+              hintText: '  username',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+              ),
             ),
-            builder: (context, snapshot) {
-              switch (snapshot.connectionState) {
-                case ConnectionState.done:
-                  return Column(
-                    children: [
-                      SizedBox(height: 150.0),
-                      TextField(
-                        controller: _userName,
-                        decoration: InputDecoration(
-                          hintText: '  username',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 5.0),
-                      TextField(
-                          controller: _phoneNumber,
-                          decoration: InputDecoration(
-                            hintText: '  Phone Number',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(25.0),
-                            ),
-                          ),
-                          keyboardType: TextInputType.phone),
-                      SizedBox(height: 5.0),
-                      TextField(
-                        controller: _email,
-                        decoration: InputDecoration(
-                          hintText: '  Email',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
-                        ),
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      SizedBox(height: 5.0),
-                      TextField(
-                        controller: _password,
-                        decoration: InputDecoration(
-                          hintText: '  Password',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(25.0),
-                          ),
-                        ),
-                        obscureText: true,
-                        enableSuggestions: false,
-                        autocorrect: false,
-                      ),
-                      SizedBox(height: 5.0),
-                      TextButton(
-                        onPressed: () async {
-                          final email = _email.text;
-                          final password = _password.text;
-                          try{
-                            final userCredential = await FirebaseAuth.instance
-                              .createUserWithEmailAndPassword(
-                            email: email,
-                            password: password,
-                          );
-                          print(userCredential);
-                          } on FirebaseAuthException catch (e){
-                            print(e.code);
-                            if(e.code == 'weak-password')
-                              print("Weak password! ");
-                            else if (e.code == "email-already-in-use")
-                              print("This email is already in use! ");
-                            else if (e.code == "invalid-email")
-                              print("This email is invaild! ");
-                            
-                          }
-                        },
-                        child: const Text('Register'),
-                      ),
-                    ],
-                  );
-                default:
-                  return const Text('Loading...');
+          ),
+          SizedBox(height: 5.0),
+          TextField(
+              controller: _phoneNumber,
+              decoration: InputDecoration(
+                hintText: '  Phone Number',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25.0),
+                ),
+              ),
+              keyboardType: TextInputType.phone),
+          SizedBox(height: 5.0),
+          TextField(
+            controller: _email,
+            decoration: InputDecoration(
+              hintText: '  Email',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+              ),
+            ),
+            enableSuggestions: false,
+            autocorrect: false,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          SizedBox(height: 5.0),
+          TextField(
+            controller: _password,
+            decoration: InputDecoration(
+              hintText: '  Password',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(25.0),
+              ),
+            ),
+            obscureText: true,
+            enableSuggestions: false,
+            autocorrect: false,
+          ),
+          SizedBox(height: 5.0),
+          TextButton(
+            onPressed: () async {
+              final email = _email.text;
+              final password = _password.text;
+              try {
+                final userCredential =
+                    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                  email: email,
+                  password: password,
+                );
+                print(userCredential);
+              } on FirebaseAuthException catch (e) {
+                print(e.code);
+                if (e.code == 'weak-password')
+                  print("Weak password! ");
+                else if (e.code == "email-already-in-use")
+                  print("This email is already in use! ");
+                else if (e.code == "invalid-email")
+                  print("This email is invaild! ");
               }
             },
-          )),
+            child: const Text('Register'),
+          ),
+          TextButton(
+              onPressed: () {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/Login',
+                  (route) => false,
+                );
+              },
+              child: const Text("Login"))
+        ],
+      ),
     );
   }
 }
