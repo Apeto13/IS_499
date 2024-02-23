@@ -19,6 +19,7 @@ void main() {
       '/Login': (context) => const LoginView(),
       '/Register': (context) => const RegisterView(),
       '/Verify_email': (context) => const VerifyEmailView(),
+      '/fotrah':(context) => const MainPage(),
     },
   ));
 }
@@ -99,6 +100,7 @@ class _MainPageState extends State<MainPage> {
           ),
         ],
       ),
+      body: const Center(child: Text("Welcome to Main Page")),
     );
   }
 }

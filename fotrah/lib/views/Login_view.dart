@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:fotrah/firebase_options.dart';
 import 'package:fotrah/views/Register_view.dart';
+import 'dart:developer' as devtools show log;
 
 class LoginView extends StatefulWidget {
   const LoginView({Key? key}) : super(key: key);
@@ -75,13 +76,17 @@ class _LoginViewState extends State<LoginView> {
                   email: email,
                   password: password,
                 );
-                print(userCredential);
+                devtools.log(userCredential.toString());
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/fotrah',
+                  (route) => false,
+                );
               } on FirebaseAuthException catch (e) {
                 //print(e.code);
                 if (e.code == "invalid-credential")
-                  print("invalid credential");
+                  devtools.log("invalid credential");
                 else
-                  print(e.code);
+                  devtools.log(e.code);
               }
             },
             child: const Text('Login'),
