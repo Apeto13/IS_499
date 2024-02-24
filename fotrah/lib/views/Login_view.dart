@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/firebase_options.dart';
 import 'package:fotrah/views/Register_view.dart';
 import 'dart:developer' as devtools show log;
+import 'package:fotrah/main.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({Key? key}) : super(key: key);
@@ -78,7 +80,7 @@ class _LoginViewState extends State<LoginView> {
                 );
                 devtools.log(userCredential.toString());
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/fotrah',
+                  fotrahRoute,
                   (route) => false,
                 );
               } on FirebaseAuthException catch (e) {
@@ -94,7 +96,7 @@ class _LoginViewState extends State<LoginView> {
           TextButton(
               onPressed: () {
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/Register',
+                  registerRoute,
                   (route) => false,
                 );
               },
