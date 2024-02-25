@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/firebase_options.dart';
+import 'package:fotrah/utilities/show_error_dialog.dart';
 import 'package:fotrah/views/Register_view.dart';
 import 'dart:developer' as devtools show log;
 import 'package:fotrah/main.dart';
@@ -84,11 +85,15 @@ class _LoginViewState extends State<LoginView> {
                   (route) => false,
                 );
               } on FirebaseAuthException catch (e) {
-                //print(e.code);
-                if (e.code == "invalid-credential")
-                  devtools.log("invalid credential");
-                else
-                  devtools.log(e.code);
+                if (e.code == "invalid-credential") {
+                  await showErrorDialog(context, "invalid-credential");
+                } else if (e.code == "user-not-found") {
+                  await showErrorDialog(context, "User not found");
+                } else {
+                  await showErrorDialog(context, "Error ${e.code}");
+                }
+              } catch (e) {
+                await showErrorDialog(context, "Error ${e.toString()}");
               }
             },
             child: const Text('Login'),
