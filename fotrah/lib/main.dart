@@ -1,12 +1,12 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+
 import 'package:flutter/material.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/firebase_options.dart';
+import 'package:fotrah/services/auth/auth_service.dart';
 import 'package:fotrah/views/Login_view.dart';
 import 'package:fotrah/views/Register_view.dart';
 import 'package:fotrah/views/Verify_email_view.dart';
-import 'package:fotrah/views/MainPage_view.dart';
+import 'package:fotrah/views/MainPage.dart';
 import 'dart:developer' as devtools show log;
 
 void main() {
@@ -34,16 +34,14 @@ class HomePage extends StatelessWidget {
     return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: FutureBuilder(
-          future: Firebase.initializeApp(
-            options: DefaultFirebaseOptions.currentPlatform,
-          ),
+          future: AuthService.firebase().initialize(),
           builder: (context, snapshot) {
             switch (snapshot.connectionState) {
               case ConnectionState.done:
-                final user = FirebaseAuth.instance.currentUser;
+                final user = AuthService.firebase().currentUser;
                 devtools.log(user.toString());
                 if (user != null) {
-                  if (user.emailVerified) {
+                  if (user.isEmailVerified) {
                     return const MainPage();
                   } else {
                     return const VerifyEmailView();
@@ -56,6 +54,7 @@ class HomePage extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
             }
           },
-        ));
+        )
+      );
   }
 }

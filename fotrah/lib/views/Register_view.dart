@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/firebase_options.dart';
+import 'package:fotrah/services/auth/auth_exceptions.dart';
+import 'package:fotrah/services/auth/auth_service.dart';
 import 'dart:developer' as devtools show log;
 import 'package:fotrah/utilities/show_error_dialog.dart';
 
@@ -99,27 +99,18 @@ class _RegisterViewState extends State<RegisterView> {
               final email = _email.text;
               final password = _password.text;
               try {
-                await FirebaseAuth.instance.createUserWithEmailAndPassword(
-                  email: email,
-                  password: password,
-                );
-                final user = FirebaseAuth.instance.currentUser;
-                await user?.sendEmailVerification();
+                await AuthService.firebase().createUser(email: email, password: password);
+                AuthService.firebase().sendEmailVerificaiton();
                 Navigator.of(context).pushNamed(VerifyEmailRoute);
-              } on FirebaseAuthException catch (e) {
-                devtools.log(e.code);
-                if (e.code == 'weak-password') {
-                  await showErrorDialog(
+              } on WeakPasswordAuthException {
+                await showErrorDialog(
                       context, "The password you are using is weak!");
-                } else if (e.code == "email-already-in-use") {
-                  await showErrorDialog(context, "Email already in use!");
-                } else if (e.code == "invalid-email") {
-                  await showErrorDialog(context, "email does not exist!");
-                } else {
-                  await showErrorDialog(context, e.code);
-                }
-              } catch (e) {
-                await showErrorDialog(context, "Error ${e.toString()}");
+              } on EmailAlreadyInUseAuthException{
+                await showErrorDialog(context, "Email already in use!");
+              } on InvalidEmailAuthException {
+                await showErrorDialog(context, "email does not exist!");
+              } on GenericAuthException {
+                await showErrorDialog(context, "Unable to register! ");
               }
             },
             child: const Text('Register'),

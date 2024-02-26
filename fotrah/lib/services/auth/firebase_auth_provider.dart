@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:fotrah/firebase_options.dart';
 import 'package:fotrah/services/auth/auth_user.dart';
 import 'package:fotrah/services/auth/auth_exceptions.dart';
 import 'package:fotrah/services/auth/auth_provider.dart';
@@ -77,9 +79,13 @@ class FirebaseAuthProvider implements AuthProvider {
   }
 
   @override
-  Future<void> logOut() {
-    // TODO: implement logOut
-    throw UnimplementedError();
+  Future<void> logOut() async{
+    final user = FirebaseAuth.instance.currentUser;
+    if(user != null){
+      await FirebaseAuth.instance.signOut();
+    } else {
+      throw UserNotLoggedInAuthException();
+    }
   }
 
   @override
@@ -90,5 +96,12 @@ class FirebaseAuthProvider implements AuthProvider {
     } else {
       throw UserNotFoundAuthException();
     }
+  }
+  
+  @override
+  Future<void> initialize() async{
+    await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
 }
