@@ -102,9 +102,8 @@ class billsService {
       final output = bills.map((BillRow) => DatabaseBill.fromRow(BillRow));
       return output;
     } catch (e) {
-      // Handle the error gracefully, such as logging it or displaying a message
       print('Error occurred while fetching bills: $e');
-      rethrow; // Rethrow the error to propagate it to the caller
+      rethrow; 
     }
   }
 
