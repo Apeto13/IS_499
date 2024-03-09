@@ -1,94 +1,148 @@
+import "dart:async";
 import "package:flutter/material.dart";
 import "package:fotrah/services/auth/CRUD/crud_exceptions.dart";
 import "package:sqflite/sqflite.dart";
 import "package:path_provider/path_provider.dart";
 import "package:path/path.dart" show join;
 
-
-class billService {
+class billsService {
   Database? _db;
+  List<DatabaseBill> _bills = [];
+  final _billsStreamController =
+      StreamController<List<DatabaseBill>>.broadcast();
+  static final billsService _shared = billsService._sharedInstance();
+  billsService._sharedInstance();
+  factory billsService() => _shared;
+
+  Stream<List<DatabaseBill>> get AllBills => _billsStreamController.stream;
+
+  Future<DatabaseUser> getOrCreateUser({
+    required String email,
+  }) async {
+    try {
+      final user = await getUser(email: email);
+      return user;
+    } on CouldNotFindUser {
+      final createdUser = await createUser(
+        email: email,
+        userName: 'DefaultUserName',
+        phoneNum: 0,
+      );
+      return createdUser;
+    } catch (_) {
+      rethrow;
+    }
+  }
+
+  Future<void> _cacheBills() async {
+    final allBills = await getAllBill();
+    _bills = allBills.toList();
+    _billsStreamController.add(_bills);
+  }
 
   Future<DatabaseBill> updateBill({
-  required int billId,
-  double? total,
-  String? billDate,
-  String? billTime,
-  List<DatabaseItem>? items,
-}) async {
-  final db = _getDatabaseOrThrow();
+    required int billId,
+    double? total,
+    String? billDate,
+    String? billTime,
+    List<DatabaseItem>? items,
+  }) async {
+    await _ensureDbIsOpen();
+    final db = _getDatabaseOrThrow();
+    final currentBill = await getBill(id: billId);
 
-  
-  final currentBill = await getBill(id: billId);
+    if (total != null || billDate != null || billTime != null) {
+      Map<String, Object?> updates = {};
+      if (total != null) updates['total'] = total;
+      if (billDate != null) updates['billDate'] = billDate;
+      if (billTime != null) updates['billTime'] = billTime;
 
-  
-  if (total != null || billDate != null || billTime != null) {
-    Map<String, Object?> updates = {};
-    if (total != null) updates['total'] = total;
-    if (billDate != null) updates['billDate'] = billDate;
-    if (billTime != null) updates['billTime'] = billTime;
-
-    final updatesCount = await db.update(
-      billTable,
-      updates,
-      where: 'billID = ?',
-      whereArgs: [billId],
-    );
-    if (updatesCount == 0){
-      throw CouldNotUpdateBill();
-    }
-  }
-
-  if (items != null) {
-    for (DatabaseItem item in items) {
-      await db.update(
-        itemTable,
-        {
-          'itemName': item.itemName,
-          'type': item.type,
-          'price': item.price,
-          'quantity': item.quantity,
-        },
-        where: 'itemID = ? AND bill_ID = ?',
-        whereArgs: [item.itemID, billId],
+      final updatesCount = await db.update(
+        billTable,
+        updates,
+        where: 'billID = ?',
+        whereArgs: [billId],
       );
+      if (updatesCount == 0) {
+        throw CouldNotUpdateBill();
+      }
     }
+
+    if (items != null) {
+      for (DatabaseItem item in items) {
+        await db.update(
+          itemTable,
+          {
+            'itemName': item.itemName,
+            'type': item.type,
+            'price': item.price,
+            'quantity': item.quantity,
+          },
+          where: 'itemID = ? AND bill_ID = ?',
+          whereArgs: [item.itemID, billId],
+        );
+      }
+    }
+
+    final updatedBill = await getBill(id: billId);
+    _bills.removeWhere((bill) => bill.billID == updatedBill.billID);
+    _bills.add(updatedBill);
+    _billsStreamController.add(_bills);
+    return updatedBill;
   }
-
-  final updatedBill = await getBill(id: billId); 
-
-  return updatedBill;
-}
 
   Future<Iterable<DatabaseBill>> getAllBill() async {
-    final db = _getDatabaseOrThrow();
-    final bills = await db.query(billTable);
-    if(bills.isEmpty)
-      throw CouldNotFindBill();
-    final output = bills.map((BillRow) => DatabaseBill.fromRow(BillRow));
-    return output;
+    try {
+      await _ensureDbIsOpen();
+      final db = _getDatabaseOrThrow();
+      final bills = await db.query(billTable);
+      if (bills.isEmpty) {
+        throw CouldNotFindBill(); // Throw error if no bills are found
+      }
+      final output = bills.map((BillRow) => DatabaseBill.fromRow(BillRow));
+      return output;
+    } catch (e) {
+      // Handle the error gracefully, such as logging it or displaying a message
+      print('Error occurred while fetching bills: $e');
+      rethrow; // Rethrow the error to propagate it to the caller
+    }
   }
 
   Future<DatabaseBill> getBill({required int id}) async {
+    await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final bills = await db
         .query(billTable, limit: 1, where: "billID = ?", whereArgs: [id]);
     if (bills.isEmpty) {
       throw CouldNotFindBill();
     } else {
-      return DatabaseBill.fromRow(bills.first);
+      final bill = DatabaseBill.fromRow(bills.first);
+      _bills.removeWhere((bill) => bill.billID == id);
+      _bills.add(bill);
+      _billsStreamController.add(_bills);
+      return bill;
     }
   }
 
   Future<int> deleteAllBill() async {
     final db = _getDatabaseOrThrow();
-    return await db.delete(billTable);
+    final numberOfDeletions = await db.delete(billTable);
+    _bills = [];
+    _billsStreamController.add(_bills);
+    return numberOfDeletions;
   }
 
   Future<void> deleteBill({required int id}) async {
+    await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final deletedCount =
         await db.delete(billTable, where: 'billID = ?', whereArgs: [id]);
-    if (deletedCount == 0) throw CouldNotDeleteBill();
+    if (deletedCount == 0) {
+      throw CouldNotDeleteBill();
+    } else {
+      _bills.removeWhere((bill) => bill.billID == id);
+      _billsStreamController.add(_bills);
+    }
   }
 
   Future<DatabaseBill> createBill({
@@ -97,6 +151,7 @@ class billService {
     String? billDate,
     String? billTime,
   }) async {
+    await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
 
     // Ensure the owner exists
@@ -128,8 +183,7 @@ class billService {
     await db.update(billTable, {'total': total},
         where: 'billID = ?', whereArgs: [billId]);
 
-    // Assuming DatabaseBill constructor and other details are properly defined
-    return DatabaseBill(
+    final bill = DatabaseBill(
       billID: billId,
       total: total,
       billDate: billDate ?? "",
@@ -138,6 +192,9 @@ class billService {
       companyID: 0, // Assuming a default or a passed value
       categoryID: 0, // Assuming a default or a passed value
     );
+    _bills.add(bill);
+    _billsStreamController.add(_bills);
+    return bill;
   }
 
   Future<void> addItemToBill(Database db, DatabaseItem item, int billId) async {
@@ -151,6 +208,7 @@ class billService {
   }
 
   Future<DatabaseUser> getUser({required String email}) async {
+    await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final results = await db.query(
       userTable,
@@ -169,6 +227,7 @@ class billService {
       {required String email,
       required String userName,
       required int phoneNum}) async {
+    await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final results = await db.query(
       userTable,
@@ -194,6 +253,7 @@ class billService {
   }
 
   Future<void> deleteUser({required String email}) async {
+    await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
     final deletedCount = await db.delete(
       userTable,
@@ -224,9 +284,15 @@ class billService {
     }
   }
 
+  Future<void> _ensureDbIsOpen() async {
+    try {
+      await open();
+    } on DatabaseAlreadyOpenException {}
+  }
+
   Future<void> open() async {
     if (_db != null) {
-      throw DataAlreadyOpenException();
+      throw DatabaseAlreadyOpenException();
     }
     try {
       final docsPath = await getApplicationCacheDirectory();
@@ -290,11 +356,11 @@ PRIMARY KEY("itemID" AUTOINCREMENT)
 	PRIMARY KEY("CompanyID" AUTOINCREMENT)
 ); ''';
       await db.execute(createCompanyTable);
+      await _cacheBills();
     } on MissingPlatformDirectoryException {
       throw UnableToGetDocumentsDirectory();
     }
   }
-  
 }
 
 class DatabaseUser {

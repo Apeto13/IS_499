@@ -1,6 +1,8 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/enums/menu_action.dart';
+import 'package:fotrah/services/auth/CRUD/bills_service.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
 
 class MainPage extends StatefulWidget {
@@ -11,6 +13,22 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  late final billsService _billsService;
+  String get userEmail => AuthService.firebase().currentUser!.email!;
+
+  @override
+  void initState() {
+    _billsService = billsService();
+    _billsService.open();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _billsService.close();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,7 +62,27 @@ class _MainPageState extends State<MainPage> {
           ),
         ],
       ),
-      body: const Center(child: Text("Welcome to Main Page")),
+      body: FutureBuilder(
+        future: _billsService.getOrCreateUser(email: userEmail),
+        builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+          switch(snapshot.connectionState ){
+            case ConnectionState.done:
+              return StreamBuilder(
+                stream: _billsService.AllBills, 
+                builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot){
+                  switch(snapshot.connectionState){
+                    case ConnectionState.waiting:
+                      return const Center(child: Text("Waiting for All Bills..."));
+                    default:
+                      return const Center(child: CircularProgressIndicator());
+                  }
+                },
+              );
+            default: 
+              return const Center(child: CircularProgressIndicator());
+          }
+        },
+      ),
     );
   }
 }
