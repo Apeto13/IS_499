@@ -105,7 +105,7 @@ class _MainPageState extends State<MainPage> {
               },
             ),
             const SizedBox(
-                width: 48), // Placeholder for the FloatingActionButton
+                width: 48), 
             // Notifications
             IconButton(
               icon: const Icon(Icons.notifications),
@@ -131,31 +131,52 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildBody() {
-    if (_currentIndex == 0) {
-      return FutureBuilder(
-        future: _billsService.getOrCreateUser(email: userEmail),
-        builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-          switch (snapshot.connectionState) {
-            case ConnectionState.done:
-              return StreamBuilder(
-                stream: _billsService.AllBills,
-                builder:
-                    (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.waiting:
-                      return const Center(
-                          child: Text("Waiting for All Bills..."));
-                    default:
-                      return const Center(child: CircularProgressIndicator());
-                  }
-                },
-              );
-            default:
-              return const Center(child: CircularProgressIndicator());
-          }
-        },
-      );
-    } else if (_currentIndex == 1) {
+  if (_currentIndex == 0) {
+    return FutureBuilder<DatabaseUser>(
+      future: _billsService.getOrCreateUser(email: userEmail),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+          // Use StreamBuilder to listen to bill changes
+          return StreamBuilder<List<DatabaseBill>>(
+            stream: _billsService.AllBills, // Adjusted for the correct type
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}"));
+              } else if (snapshot.hasData) {
+                final bills = snapshot.data!;
+                // Check if there are bills
+                if (bills.isEmpty) {
+                  return const Center(child: Text("No bills found"));
+                }
+                // Display bills
+                return ListView.builder(
+                  itemCount: bills.length,
+                  itemBuilder: (context, index) {
+                    final bill = bills[index];
+                    // Simple representation of a bill, you can customize this
+                    return ListTile(
+                      title: Text("Bill ID: ${bill.billID}"),
+                      subtitle: Text("Total: ${bill.total.toString()}"),
+                      onTap: () {
+                        // Handle bill tap, if necessary
+                      },
+                    );
+                  },
+                );
+              } else {
+                return const Center(child: Text("No bills available"));
+              }
+            },
+          );
+        } else {
+          // Handling loading state and errors
+          return const Center(child: CircularProgressIndicator());
+        }
+      },
+    );
+  } else if (_currentIndex == 1) {
       return Center(
         child: Text('Analytics'),
       );

@@ -107,6 +107,8 @@ class billsService {
     }
   }
 
+  
+
   Future<DatabaseBill> getBill({required int id}) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
@@ -402,6 +404,7 @@ class DatabaseBill {
   final int userID;
   final int companyID;
   final int categoryID;
+  final List<DatabaseItem> items;
 
   const DatabaseBill({
     required this.billID,
@@ -411,16 +414,19 @@ class DatabaseBill {
     required this.userID,
     required this.companyID,
     required this.categoryID,
+    this.items = const [],
   });
 
-  DatabaseBill.fromRow(Map<String, Object?> map)
-      : userID = map[userIdColumn] as int,
-        billID = map[billIdCloumn] as int,
-        total = map[totalCloumn] as double,
-        billDate = map[billDateIdCloumn] as String,
-        billTime = map[billTimeIdCloumn] as String,
-        companyID = map[companyIdColumn] as int,
-        categoryID = map[cateIdColumn] as int;
+ DatabaseBill.fromRow(Map<String, Object?> map, [List<DatabaseItem> items = const []])
+      : billID = map['billID'] as int,
+        total = map['total'] as double,
+        billDate = map['billDate'] as String,
+        billTime = map['billTime'] as String,
+        userID = map['user_ID'] as int,
+        companyID = map['company_ID'] as int,
+        categoryID = map['category_ID'] as int,
+        items = items;
+
 
   @override
   String toString() =>
@@ -436,10 +442,10 @@ class DatabaseBill {
 
 class DatabaseItem {
   final int itemID;
-  final String itemName;
-  final String type;
-  final double price;
-  final int quantity;
+  late final String itemName;
+  late final String type;
+  late final double price;
+  late final int quantity;
   final int billID;
 
   DatabaseItem({
@@ -451,6 +457,17 @@ class DatabaseItem {
     required this.billID,
   });
 
+  Map<String, dynamic> toMap() {
+    return {
+      'itemID': itemID,
+      'itemName': itemName,
+      'type': type,
+      'price': price,
+      'quantity': quantity,
+      'billID': billID,
+    };
+  }
+
   DatabaseItem.fromRow(Map<String, Object?> map)
       : itemID = map[itemIdcloumn] as int,
         itemName = map[itemNameCloumn] as String,
@@ -459,9 +476,9 @@ class DatabaseItem {
         quantity = map[quantityCloumn] as int,
         billID = map[billIditemColumn] as int;
 
-  @override
-  String toString() =>
-      "item ID = $itemID, itemName = $itemName, quantity = $quantity";
+ @override
+String toString() =>
+    "item ID = $itemID, itemName = ${itemName ?? 'Unknown'}, quantity = $quantity";
 
   @override
   bool operator ==(covariant DatabaseItem other) => itemID == other.itemID;
