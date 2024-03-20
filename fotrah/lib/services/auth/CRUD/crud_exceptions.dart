@@ -15,3 +15,8 @@ class CouldNotFindUser implements Exception {}
 class CouldNotFindBill implements Exception {}
 
 class CouldNotUpdateBill implements Exception{}
+
+class CouldNotFindCompany implements Exception{}
+
+class CouldNotFindCategory implements Exception{}
+

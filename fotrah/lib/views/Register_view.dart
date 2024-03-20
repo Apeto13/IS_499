@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/firebase_options.dart';
+import 'package:fotrah/services/auth/CRUD/bills_service.dart';
 import 'package:fotrah/services/auth/auth_exceptions.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
 import 'dart:developer' as devtools show log;
 import 'package:fotrah/utilities/show_error_dialog.dart';
+
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -98,14 +100,22 @@ class _RegisterViewState extends State<RegisterView> {
             onPressed: () async {
               final email = _email.text;
               final password = _password.text;
+              final userName = _userName.text;
+              final phoneNumber = _phoneNumber.text;
               try {
-                await AuthService.firebase().createUser(email: email, password: password);
+                await AuthService.firebase()
+                    .createUser(email: email, password: password);
                 AuthService.firebase().sendEmailVerificaiton();
+                await billsService().saveUserDetails(
+                  email: email,
+                  userName: userName,
+                  phoneNumber: phoneNumber,
+                );
                 Navigator.of(context).pushNamed(VerifyEmailRoute);
               } on WeakPasswordAuthException {
                 await showErrorDialog(
-                      context, "The password you are using is weak!");
-              } on EmailAlreadyInUseAuthException{
+                    context, "The password you are using is weak!");
+              } on EmailAlreadyInUseAuthException {
                 await showErrorDialog(context, "Email already in use!");
               } on InvalidEmailAuthException {
                 await showErrorDialog(context, "email does not exist!");

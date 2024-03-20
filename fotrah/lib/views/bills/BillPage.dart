@@ -32,10 +32,32 @@ class _MainPageState extends State<MainPage> {
     super.initState();
   }
 
-  @override
-  void dispose() {
-    _billsService.close();
-    super.dispose();
+  Future<void> _showDeleteConfirmationDialog(
+      BuildContext context, int billId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Bill'),
+        content: Text('Are you sure you want to delete this bill?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    // If confirmed, delete the bill and refresh the list (if needed)
+    if (shouldDelete ?? false) {
+      await _billsService.deleteBill(id: billId);
+      setState(
+          () {}); // This will refresh the UI if your list is built within this Widget.
+    }
   }
 
   @override
@@ -104,8 +126,7 @@ class _MainPageState extends State<MainPage> {
                 });
               },
             ),
-            const SizedBox(
-                width: 48), 
+            const SizedBox(width: 48),
             // Notifications
             IconButton(
               icon: const Icon(Icons.notifications),
@@ -131,52 +152,79 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildBody() {
-  if (_currentIndex == 0) {
-    return FutureBuilder<DatabaseUser>(
-      future: _billsService.getOrCreateUser(email: userEmail),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-          // Use StreamBuilder to listen to bill changes
-          return StreamBuilder<List<DatabaseBill>>(
-            stream: _billsService.AllBills, // Adjusted for the correct type
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text("Error: ${snapshot.error}"));
-              } else if (snapshot.hasData) {
-                final bills = snapshot.data!;
-                // Check if there are bills
-                if (bills.isEmpty) {
-                  return const Center(child: Text("No bills found"));
+    if (_currentIndex == 0) {
+      return FutureBuilder<DatabaseUser>(
+        future: _billsService.getOrCreateUser(email: userEmail),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              snapshot.hasData) {
+            return StreamBuilder<List<DatabaseBill>>(
+              stream: _billsService.AllBills,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                  final bills = snapshot.data!;
+                  return ListView.builder(
+                    itemCount: bills.length,
+                    itemBuilder: (context, index) {
+                      final bill = bills[index];
+                      // Fetch and display company name using FutureBuilder
+                      return FutureBuilder<DatabaseCompany>(
+                        future: _billsService.getCompanyById(bill.companyID),
+                        builder: (context, companySnapshot) {
+                          print("Connection state: ${companySnapshot.connectionState}");
+                          print("Has data: ${companySnapshot.hasData}");
+                          print("Snapshot data: ${companySnapshot.data}");
+                          if (companySnapshot.connectionState ==
+                                  ConnectionState.done &&
+                              companySnapshot.hasData) {
+                            final company = companySnapshot.data!;
+                            // Check if the company name is not null and not empty
+                            final companyName = company.coName.isNotEmpty
+                                ? company.coName
+                                : "Unnamed Company";
+                            return ListTile(
+                              title: Text(
+                                  companyName), // Use the companyName variable here
+                              subtitle: Text(
+                                  "Total: ${bill.total.toStringAsFixed(2)}\nDate: ${bill.billDate}\nTime: ${bill.billTime}"),
+                              trailing: IconButton(
+                                icon: Icon(Icons.delete),
+                                onPressed: () => _showDeleteConfirmationDialog(
+                                    context, bill.billID),
+                              ),
+                            );
+                          } else {
+                            // Display a placeholder or loading indicator while waiting for company details
+                            return ListTile(
+                              title: const Text("Loading company..."),
+                              subtitle: Text(
+                                  "Total: ${bill.total.toStringAsFixed(2)}"),
+                              trailing: IconButton(
+                                icon: Icon(Icons.delete),
+                                onPressed: () => _showDeleteConfirmationDialog(
+                                    context, bill.billID),
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  );
+                } else {
+                  return const Center(child: Text("No bills available"));
                 }
-                // Display bills
-                return ListView.builder(
-                  itemCount: bills.length,
-                  itemBuilder: (context, index) {
-                    final bill = bills[index];
-                    // Simple representation of a bill, you can customize this
-                    return ListTile(
-                      title: Text("Bill ID: ${bill.billID}"),
-                      subtitle: Text("Total: ${bill.total.toString()}"),
-                      onTap: () {
-                        // Handle bill tap, if necessary
-                      },
-                    );
-                  },
-                );
-              } else {
-                return const Center(child: Text("No bills available"));
-              }
-            },
-          );
-        } else {
-          // Handling loading state and errors
-          return const Center(child: CircularProgressIndicator());
-        }
-      },
-    );
-  } else if (_currentIndex == 1) {
+              },
+            );
+          } else {
+            return const Center(child: CircularProgressIndicator());
+          }
+        },
+      );
+    } else if (_currentIndex == 1) {
       return Center(
         child: Text('Analytics'),
       );

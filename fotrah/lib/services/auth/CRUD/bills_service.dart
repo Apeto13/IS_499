@@ -1,4 +1,5 @@
 import "dart:async";
+import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:fotrah/services/auth/CRUD/crud_exceptions.dart";
 import "package:sqflite/sqflite.dart";
@@ -8,10 +9,15 @@ import "package:path/path.dart" show join;
 class billsService {
   Database? _db;
   List<DatabaseBill> _bills = [];
-  final _billsStreamController =
-      StreamController<List<DatabaseBill>>.broadcast();
+  late final StreamController<List<DatabaseBill>> _billsStreamController;
   static final billsService _shared = billsService._sharedInstance();
-  billsService._sharedInstance();
+  billsService._sharedInstance() {
+    _billsStreamController = StreamController<List<DatabaseBill>>.broadcast(
+      onListen: () {
+        _billsStreamController.sink.add(_bills);
+      },
+    );
+  }
   factory billsService() => _shared;
 
   Stream<List<DatabaseBill>> get AllBills => _billsStreamController.stream;
@@ -40,50 +46,44 @@ class billsService {
     _billsStreamController.add(_bills);
   }
 
+  Future<void> saveUserDetails({required String email, required String userName, required String phoneNumber}) async {
+    int PhoneNumber = int.parse(phoneNumber);
+    await createUser(
+        email: email,
+        userName: userName,
+        phoneNum: PhoneNumber,
+      );
+  }
+
   Future<DatabaseBill> updateBill({
     required int billId,
-    double? total,
     String? billDate,
     String? billTime,
     List<DatabaseItem>? items,
+    required double total, // Add this line
   }) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
-    final currentBill = await getBill(id: billId);
 
-    if (total != null || billDate != null || billTime != null) {
-      Map<String, Object?> updates = {};
-      if (total != null) updates['total'] = total;
-      if (billDate != null) updates['billDate'] = billDate;
-      if (billTime != null) updates['billTime'] = billTime;
+    // No need to recalculate total here anymore
+    // double total = 0.0;
+    // if (items != null && items.isNotEmpty) {
+    //   for (DatabaseItem item in items) {
+    //     total += item.price * item.quantity;
+    //   }
+    // }
 
-      final updatesCount = await db.update(
-        billTable,
-        updates,
-        where: 'billID = ?',
-        whereArgs: [billId],
-      );
-      if (updatesCount == 0) {
-        throw CouldNotUpdateBill();
-      }
-    }
+    // Update the bill's total along with any other details provided
+    Map<String, Object?> updates = {
+      'total': total, // Use the passed total
+      if (billDate != null) 'billDate': billDate,
+      if (billTime != null) 'billTime': billTime,
+    };
 
-    if (items != null) {
-      for (DatabaseItem item in items) {
-        await db.update(
-          itemTable,
-          {
-            'itemName': item.itemName,
-            'type': item.type,
-            'price': item.price,
-            'quantity': item.quantity,
-          },
-          where: 'itemID = ? AND bill_ID = ?',
-          whereArgs: [item.itemID, billId],
-        );
-      }
-    }
+    await db
+        .update(billTable, updates, where: 'billID = ?', whereArgs: [billId]);
 
+    // Fetch the updated bill to return
     final updatedBill = await getBill(id: billId);
     _bills.removeWhere((bill) => bill.billID == updatedBill.billID);
     _bills.add(updatedBill);
@@ -103,11 +103,9 @@ class billsService {
       return output;
     } catch (e) {
       print('Error occurred while fetching bills: $e');
-      rethrow; 
+      rethrow;
     }
   }
-
-  
 
   Future<DatabaseBill> getBill({required int id}) async {
     await _ensureDbIsOpen();
@@ -146,14 +144,32 @@ class billsService {
     }
   }
 
-  Future<DatabaseBill> createBill({
-    required DatabaseUser ownerOfBill,
-    List<DatabaseItem>? items,
-    String? billDate,
-    String? billTime,
-  }) async {
+  Future<DatabaseBill> createBill(
+      {required DatabaseUser ownerOfBill,
+      required String coName,
+      required String cateName,
+      List<DatabaseItem>? items,
+      String? billDate,
+      String? billTime,
+      required double total}) async {
     await _ensureDbIsOpen();
     final db = _getDatabaseOrThrow();
+
+    // Check if the company already exists and get the company_ID
+    int companyId;
+    try {
+      companyId = await getCompanyId(coName);
+    } on CouldNotFindCompany {
+      // If the company does not exist, create it
+      companyId = await createCompany(coName);
+    }
+
+    int cateId;
+    try {
+      cateId = await getCategoryId(cateName);
+    } on CouldNotFindCategory {
+      cateId = await createCategory(cateName);
+    }
 
     // Ensure the owner exists
     final dbUser = await getUser(email: ownerOfBill.email);
@@ -161,28 +177,38 @@ class billsService {
       throw CouldNotFindUser();
     }
 
-    // Create the bill
+    // Create the bill with the company_ID
     final billId = await db.insert(billTable, {
       'user_ID': ownerOfBill.userID,
       'billDate': billDate,
       'billTime': billTime,
-      // Initially, total is set to 0; will be updated after items are added
       'total': 0,
+      'company_ID': companyId,
+      'category_ID': cateId,
     });
 
-    double total = 0.0;
+    // double total = 0.0;
 
-    // Add items if any
-    if (items != null) {
-      for (var item in items) {
-        await addItemToBill(db, item, billId);
-        total += item.price * item.quantity;
-      }
-    }
+    // // Add items if any
+    // if (items != null) {
+    //   for (var item in items) {
+    //     await addItemToBill(db, item, billId);
+    //     total += item.price * item.quantity;
+    //   }
+    // }
 
-    // Update the bill with the total
-    await db.update(billTable, {'total': total},
-        where: 'billID = ?', whereArgs: [billId]);
+    // // Update the bill with the total
+    // await db.update(billTable, {'total': total},
+    //     where: 'billID = ?', whereArgs: [billId]);
+
+    // await db.insert(billTable, {
+    //   'user_ID': ownerOfBill.userID,
+    //   'billDate': billDate,
+    //   'billTime': billTime,
+    //   'total': total,
+    //   'company_ID': companyId,
+    //   'category_ID': cateId,
+    // });
 
     final bill = DatabaseBill(
       billID: billId,
@@ -190,12 +216,73 @@ class billsService {
       billDate: billDate ?? "",
       billTime: billTime ?? "",
       userID: ownerOfBill.userID,
-      companyID: 0, // Assuming a default or a passed value
-      categoryID: 0, // Assuming a default or a passed value
+      companyID: companyId, // Assuming a default or a passed value
+      categoryID: cateId, // Assuming a default or a passed value
     );
     _bills.add(bill);
     _billsStreamController.add(_bills);
     return bill;
+  }
+
+  Future<DatabaseCompany> getCompanyById(int companyId) async {
+    await _ensureDbIsOpen();
+    final db = _getDatabaseOrThrow();
+    final companyDetails = await db.query(
+      companyTable,
+      where: 'companyID = ?',
+      whereArgs: [companyId],
+    );
+    print(companyDetails);
+    if (companyDetails.isEmpty) {
+      throw CouldNotFindCompany();
+    } else {
+      final companyDetail = DatabaseCompany.fromRow(companyDetails.first);
+      print(companyDetail);
+      return companyDetail;
+    }
+  }
+
+  Future<int> getCompanyId(String coName) async {
+    final db = _getDatabaseOrThrow();
+    final result = await db.query(
+      companyTable,
+      where: 'coName = ?',
+      whereArgs: [coName],
+    );
+    if (result.isNotEmpty && result.first[companyIdColumn] != null) {
+      return result.first[companyIdColumn] as int;
+    } else {
+      throw CouldNotFindCompany();
+    }
+  }
+
+  Future<int> createCompany(String coName) async {
+    final db = _getDatabaseOrThrow();
+    // Insert a new company with the given coName and default values for other fields
+    return await db.insert(companyTable, {
+      'coName': coName,
+    });
+  }
+
+  Future<int> getCategoryId(String cateName) async {
+    final db = _getDatabaseOrThrow();
+    final result = await db.query(
+      cateTable,
+      where: '$cateNameColumn = ?',
+      whereArgs: [cateName],
+    );
+    if (result.isNotEmpty && result.first[cateIdColumn] != null) {
+      return result.first[categoryIdCloumn] as int;
+    } else {
+      throw CouldNotFindCategory();
+    }
+  }
+
+  Future<int> createCategory(String cateName) async {
+    final db = _getDatabaseOrThrow();
+    return await db.insert(cateTable, {
+      "cateName": cateName,
+    });
   }
 
   Future<void> addItemToBill(Database db, DatabaseItem item, int billId) async {
@@ -417,16 +504,16 @@ class DatabaseBill {
     this.items = const [],
   });
 
- DatabaseBill.fromRow(Map<String, Object?> map, [List<DatabaseItem> items = const []])
+  DatabaseBill.fromRow(Map<String, Object?> map,
+      [List<DatabaseItem> items = const []])
       : billID = map['billID'] as int,
-        total = map['total'] as double,
+        total = (map['total'] as num).toDouble(),
         billDate = map['billDate'] as String,
         billTime = map['billTime'] as String,
         userID = map['user_ID'] as int,
         companyID = map['company_ID'] as int,
         categoryID = map['category_ID'] as int,
         items = items;
-
 
   @override
   String toString() =>
@@ -441,12 +528,12 @@ class DatabaseBill {
 }
 
 class DatabaseItem {
-  final int itemID;
+  late final int itemID;
   late final String itemName;
   late final String type;
   late final double price;
   late final int quantity;
-  final int billID;
+  late final int billID;
 
   DatabaseItem({
     required this.itemID,
@@ -476,9 +563,9 @@ class DatabaseItem {
         quantity = map[quantityCloumn] as int,
         billID = map[billIditemColumn] as int;
 
- @override
-String toString() =>
-    "item ID = $itemID, itemName = ${itemName ?? 'Unknown'}, quantity = $quantity";
+  @override
+  String toString() =>
+      "item ID = $itemID, itemName = ${itemName ?? 'Unknown'}, quantity = $quantity";
 
   @override
   bool operator ==(covariant DatabaseItem other) => itemID == other.itemID;
@@ -491,34 +578,39 @@ String toString() =>
 class DatabaseCompany {
   final int companyId;
   final String coName;
-  final String address;
-  final String branch;
-  final int coPhone;
+  final String? address;
+  final String? branch;
+  final int? coPhone;
 
   DatabaseCompany({
     required this.companyId,
     required this.coName,
-    required this.address,
-    required this.branch,
-    required this.coPhone,
+    this.address,
+    this.branch,
+    this.coPhone,
   });
 
-  DatabaseCompany.fromRow(Map<String, Object?> map)
-      : companyId = map[companyIdCloumn] as int,
-        coName = map[coNameColumn] as String,
-        address = map[addressCloumn] as String,
-        branch = map[branchCloumn] as String,
-        coPhone = map[coPhoneCloumn] as int;
+  factory DatabaseCompany.fromRow(Map<String, dynamic> map) {
+    return DatabaseCompany(
+      companyId: map['CompanyID'] as int,
+      coName: map['CoName'] as String,
+      address: map['address'] as String?, // Correctly handling as nullable
+      branch: map['branch'] as String?, // Correctly handling as nullable
+      coPhone:
+          map['coPhoneNum'] as int?, // Fixed name to match your class field
+    );
+  }
 
   @override
-  String toString() => "None";
+  String toString() {
+    return 'Company ID: $companyId, Name: $coName, Address: $address, Branch: $branch, Phone: $coPhone';
+  }
 
   @override
   bool operator ==(covariant DatabaseCompany other) =>
       companyId == other.companyId;
 
   @override
-  // TODO: implement hashCode
   int get hashCode => companyId.hashCode;
 }
 
