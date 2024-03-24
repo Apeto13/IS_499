@@ -40,8 +40,7 @@ class CloudBill {
     return {
       'total': total,
       'billDateAndTime': billDateAndTime,
-      'userId':
-          userId, 
+      'userId': userId,
       'companyId': companyId,
       'categoryId': categoryId,
       'items': items,
@@ -109,3 +108,34 @@ class CloudCategory {
   }
 }
 
+class CloudUser {
+  final String id;
+  final String? userName;
+  final String? phoneNum;
+  final String email;
+
+  CloudUser({
+    required this.id,
+    this.userName,
+    this.phoneNum,
+    required this.email,
+  });
+
+  factory CloudUser.fromSnapshot(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return CloudUser(
+      id: doc.id,
+      userName: data['userName'] ?? '',
+      phoneNum: data['phoneNumber'] ?? '',
+      email: data['email'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'userName': userName,
+      'phoneNum': phoneNum,
+      'email': email,
+    };
+  }
+}

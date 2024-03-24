@@ -76,34 +76,15 @@ class _MainPageState extends State<MainPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Main Page"),
+        title: const Text(
+          "Main Page",
+          style: TextStyle(
+            fontSize: 25.0,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         backgroundColor: Colors.blue,
-        // actions: [
-        //   PopupMenuButton<MenuAction>(
-        //     onSelected: (result) async {
-        //       switch (result) {
-        //         case MenuAction.Logout:
-        //           final shouldLogout = await showLogOutDialog(context);
-        //           if (shouldLogout) {
-        //             await AuthService.firebase().logOut();
-        //             Navigator.of(context).pushNamedAndRemoveUntil(
-        //               loginRoute,
-        //               (route) => false,
-        //             );
-        //           }
-        //           break;
-        //       }
-        //     },
-        //     itemBuilder: (context) {
-        //       return const <PopupMenuEntry<MenuAction>>[
-        //         PopupMenuItem<MenuAction>(
-        //           value: MenuAction.Logout,
-        //           child: Text('Log out'),
-        //         ),
-        //       ];
-        //     },
-        //   ),
-        // ],
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
@@ -136,6 +117,7 @@ class _MainPageState extends State<MainPage> {
                 setState(() {
                   _currentIndex = 1;
                 });
+                Navigator.of(context).pushNamed(AnalyticsRoute);
               },
             ),
             const SizedBox(width: 48),
@@ -166,8 +148,7 @@ class _MainPageState extends State<MainPage> {
   Widget _buildBody() {
     if (_currentIndex == 0) {
       return FutureBuilder<List<CloudBill>>(
-        future: _cloudStorage.getBillsForUser(
-            userId: _userId), // Assuming this method exists
+        future: _cloudStorage.getBillsForUser(userId: _userId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -185,23 +166,39 @@ class _MainPageState extends State<MainPage> {
                 return FutureBuilder<String>(
                   future: _cloudStorage.getCompanyName(bill.companyId),
                   builder: (context, companySnapshot) {
-                    // Your existing builder logic
                     String companyName =
                         companySnapshot.data ?? "Unknown Company";
                     DateTime billDate = bill.billDateAndTime.toDate();
                     String formattedDate =
                         DateFormat('dd/MM/yyyy HH:mm').format(billDate);
-                    return ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(
-                          BillDetailRoute,
-                          arguments: bill,
-                        );
-                      },
+                    return Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.all(8),
                       child: ListTile(
-                        title: Text(companyName),
+                        title: Text(companyName,
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(
                             "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
+                        trailing: Wrap(
+                          spacing: 12, // space between two icons
+                          children: <Widget>[
+                            IconButton(
+                              icon: Icon(Icons.visibility,
+                                  color: Theme.of(context).primaryColor),
+                              onPressed: () {
+                                Navigator.of(context).pushNamed(
+                                  BillDetailRoute,
+                                  arguments: bill,
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _showDeleteConfirmationDialog(
+                                  context, bill.id),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -214,12 +211,59 @@ class _MainPageState extends State<MainPage> {
         },
       );
     } else if (_currentIndex == 1) {
-      return Center(
+      return const Center(
         child: Text('Analytics'),
       );
     } else if (_currentIndex == 2) {
-      return Center(
-        child: Text('No notification for now'),
+      // Assuming this is within a StatefulWidget that has access to _cloudStorage
+      final String userId = AuthService.firebase().currentUser!.email;
+      final DateTime now = DateTime.now();
+      return FutureBuilder<bool>(
+        future: _cloudStorage.checkBudgetNotification(
+            userId: userId, year: now.year, month: now.month),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasData && snapshot.data!) {
+            // User is nearing their budget limit
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Card(
+                  elevation: 4, // Adds shadow to the card
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize
+                          .min, // Minimize the column's size to fit its children
+                      children: [
+                        Text(
+                          'Budget Alert',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                        SizedBox(
+                            height: 10), // Spacing between title and content
+                        Text(
+                          'You are close to reaching your monthly budget!',
+                          style: TextStyle(fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          } else {
+            return const Center(
+              child: Text('No notification for now'),
+            );
+          }
+        },
       );
     } else if (_currentIndex == 3) {
       return ListView(
@@ -238,7 +282,16 @@ class _MainPageState extends State<MainPage> {
               title: Text('Set Notification'),
               trailing: Icon(Icons.arrow_forward_ios),
               onTap: () {
-                // Navigate to set notification
+                Navigator.of(context).pushNamed(SetNotificationRoute);
+              },
+            ),
+          ),
+          Card(
+            child: ListTile(
+              title: Text('Terms & conditons'),
+              trailing: Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.of(context).pushNamed(TermsAndConditionsRoute);
               },
             ),
           ),

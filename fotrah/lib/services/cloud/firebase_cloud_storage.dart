@@ -10,6 +10,72 @@ class FirebaseCloudStorage {
 
   final bills = FirebaseFirestore.instance.collection('bill');
 
+  Future<void> setUserBudget(
+      {required String userId,
+      required double budget,
+      required int year,
+      required int month}) async {
+    final budgetRef = FirebaseFirestore.instance
+        .collection('budgets')
+        .doc('$userId-$year-$month');
+    await budgetRef.set({
+      'budget': budget,
+      'year': year,
+      'month': month,
+    });
+  }
+
+  Future<bool> checkBudgetNotification(
+      {required String userId, required int year, required int month}) async {
+    final startOfMonth = DateTime(year, month);
+    final endOfMonth = DateTime(year, month + 1).subtract(Duration(seconds: 1));
+
+    final budgetDoc = await FirebaseFirestore.instance
+        .collection('budgets')
+        .doc('$userId-$year-$month')
+        .get();
+    if (!budgetDoc.exists) {
+      print("No budget set for this month.");
+      return false;
+    }
+
+    double budget = budgetDoc.data()?['budget'] ?? 0;
+    double totalSpent = await _getSumTotalOfUser(
+        userId: userId,
+        startOfMonth: Timestamp.fromDate(startOfMonth),
+        endOfMonth: Timestamp.fromDate(endOfMonth));
+
+    print("Budget: $budget, Total Spent: $totalSpent");
+
+    return totalSpent >= (budget - 50) && totalSpent <= budget;
+  }
+
+  Future<double> _getSumTotalOfUser({
+    required String userId,
+    required Timestamp startOfMonth,
+    required Timestamp endOfMonth,
+  }) async {
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection(
+            'bill') 
+        .where('userId', isEqualTo: userId)
+        .where('billDateAndTime', isGreaterThanOrEqualTo: startOfMonth)
+        .where('billDateAndTime', isLessThanOrEqualTo: endOfMonth)
+        .get();
+    print("userId: $userId");
+    print("Start Of The Month: $startOfMonth End of the month $endOfMonth");
+    double totalSpent = 0;
+    print(totalSpent);
+    for (var doc in querySnapshot.docs) {
+      final docData = doc.data() as Map<String, dynamic>;
+      final total =
+          docData['total'] as num?; // Assuming 'total' is stored as a number
+      if (total != null) {
+        totalSpent += total.toDouble();
+      }
+    }
+    return totalSpent;
+  }
 
   Future<Map<String, String?>> getUserDetails(String email) async {
     DocumentSnapshot userSnapshot =
@@ -19,7 +85,7 @@ class FirebaseCloudStorage {
           userSnapshot.data() as Map<String, dynamic>;
       return {
         'userName': userData['userName'],
-        'phoneNum': userData['phoneNumber'],
+        'phoneNumber': userData['phoneNumber'],
         'email': userSnapshot.id, // ID of the document is the email
       };
     } else {
@@ -32,8 +98,7 @@ class FirebaseCloudStorage {
     String? userName,
     String? phoneNumber,
   }) async {
-    final userDocRef =
-        FirebaseFirestore.instance.collection('user').doc(email);
+    final userDocRef = FirebaseFirestore.instance.collection('user').doc(email);
 
     Map<String, Object?> updates = {};
     if (userName != null) updates['userName'] = userName;

@@ -1,16 +1,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:fotrah/constants/routes.dart';
-import 'package:fotrah/firebase_options.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
 import 'package:fotrah/views/Login_view.dart';
 import 'package:fotrah/views/Register_view.dart';
 import 'package:fotrah/views/Verify_email_view.dart';
 import 'package:fotrah/views/bills/BillPage.dart';
+import 'package:fotrah/views/bills/analysis.dart';
 import 'package:fotrah/views/bills/bill_details.dart';
 import 'package:fotrah/views/bills/profile.dart';
-import 'dart:developer' as devtools show log;
+import 'package:fotrah/views/bills/set_notification.dart';
+import 'package:fotrah/views/bills/terms_and_conditions.dart';
 import 'package:path/path.dart';
+import 'dart:developer' as devtools show log;
 import 'views/bills/new_bill_view.dart';
 
 
@@ -30,6 +32,9 @@ void main() {
       newBillRoute: (context) => const NewBillView(),
       BillDetailRoute: (context) => const BillDetailsPage(),
       ProfileRoute:(context) => const Profile(),
+      SetNotificationRoute: (context) => const SetNotificationPage(),
+      TermsAndConditionsRoute: (context) => const TermsAndConditionsPage(),
+      AnalyticsRoute:(context) => const AnalyticsPage(),
     },
   ));
 }
