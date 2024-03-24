@@ -7,11 +7,12 @@ import 'package:fotrah/views/Login_view.dart';
 import 'package:fotrah/views/Register_view.dart';
 import 'package:fotrah/views/Verify_email_view.dart';
 import 'package:fotrah/views/bills/BillPage.dart';
+import 'package:fotrah/views/bills/bill_details.dart';
+import 'package:fotrah/views/bills/profile.dart';
 import 'dart:developer' as devtools show log;
-
 import 'package:path/path.dart';
-
 import 'views/bills/new_bill_view.dart';
+
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,8 @@ void main() {
       VerifyEmailRoute: (context) => const VerifyEmailView(),
       fotrahRoute: (context) => const MainPage(),
       newBillRoute: (context) => const NewBillView(),
+      BillDetailRoute: (context) => const BillDetailsPage(),
+      ProfileRoute:(context) => const Profile(),
     },
   ));
 }

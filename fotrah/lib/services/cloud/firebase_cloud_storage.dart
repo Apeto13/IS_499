@@ -10,21 +10,163 @@ class FirebaseCloudStorage {
 
   final bills = FirebaseFirestore.instance.collection('bill');
 
-  Future<void> createNewBill({
+
+  Future<Map<String, String?>> getUserDetails(String email) async {
+    DocumentSnapshot userSnapshot =
+        await FirebaseFirestore.instance.collection('user').doc(email).get();
+    if (userSnapshot.exists) {
+      Map<String, dynamic> userData =
+          userSnapshot.data() as Map<String, dynamic>;
+      return {
+        'userName': userData['userName'],
+        'phoneNum': userData['phoneNumber'],
+        'email': userSnapshot.id, // ID of the document is the email
+      };
+    } else {
+      throw CouldNotGetUserInfoException(); // Make sure to define this exception
+    }
+  }
+
+  Future<void> updateUserDetails({
+    required String email,
+    String? userName,
+    String? phoneNumber,
+  }) async {
+    final userDocRef =
+        FirebaseFirestore.instance.collection('user').doc(email);
+
+    Map<String, Object?> updates = {};
+    if (userName != null) updates['userName'] = userName;
+    if (phoneNumber != null) updates['phoneNumber'] = phoneNumber;
+
+    try {
+      await userDocRef.update(updates);
+      print("User details updated successfully.");
+    } catch (e) {
+      print("Error updating user details: $e");
+      throw CouldNotUpdateUserException(); // Make sure to define this exception
+    }
+  }
+
+  Future<void> saveUserDetails({
+    required String email,
+    required String userName,
+    required String phoneNumber,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('user').doc(email).set({
+        'userName': userName,
+        'phoneNumber': phoneNumber,
+        // Add any additional fields you need
+      });
+    } catch (e) {
+      print('Error saving user details: $e');
+      throw CouldNotSaveUserExceprion();
+    }
+  }
+
+  Future<DocumentReference> createCompany(String coName) async {
+    final companyRef =
+        FirebaseFirestore.instance.collection('company').doc(coName);
+    final companyDoc = await companyRef.get();
+    if (!companyDoc.exists) {
+      await companyRef.set({'coName': coName});
+    }
+    return companyRef; // Returns a reference to the company document
+  }
+
+  Future<DocumentReference> createCategory(String cateName) async {
+    final categoryRef =
+        FirebaseFirestore.instance.collection('category').doc(cateName);
+    final categoryDoc = await categoryRef.get();
+    if (!categoryDoc.exists) {
+      await categoryRef.set(
+          {'cateName': cateName}); // Add any other category fields you need
+    }
+    return categoryRef; // Returns a reference to the category document
+  }
+
+  Future<String> getCompanyId(DocumentReference companyRef) async {
+    try {
+      final docSnapshot = await companyRef.get();
+      if (docSnapshot.exists) {
+        return docSnapshot
+            .id; // or docSnapshot.data()['someFieldName'] if you need a specific field
+      } else {
+        throw CouldNotFindCompanyException(); // Custom exception, ensure you define it
+      }
+    } catch (e) {
+      print('Error fetching company ID: $e');
+      throw CouldNotFindCompanyException(); // Use a more specific exception if necessary
+    }
+  }
+
+  Future<String> getCategoryId(DocumentReference categoryRef) async {
+    try {
+      final docSnapshot = await categoryRef.get();
+      if (docSnapshot.exists) {
+        return docSnapshot.id; // Or any specific field from the document
+      } else {
+        throw CouldNotFindCategoryException(); // Custom exception, ensure you define it
+      }
+    } catch (e) {
+      print('Error fetching category ID: $e');
+      throw CouldNotFindCategoryException(); // Use a more specific exception if necessary
+    }
+  }
+
+  Future<String> getCompanyName(DocumentReference companyRef) async {
+    try {
+      DocumentSnapshot companyDoc = await companyRef.get();
+      if (companyDoc.exists) {
+        Map<String, dynamic> companyData =
+            companyDoc.data() as Map<String, dynamic>;
+        return companyData['coName'] ?? "Unknown Company";
+      } else {
+        return "Unknown Company";
+      }
+    } catch (e) {
+      print("Error fetching company name: $e");
+      return "Error";
+    }
+  }
+
+  Future<String> getCategoryName(DocumentReference categoryRef) async {
+    try {
+      DocumentSnapshot categorySnapshot = await categoryRef.get();
+      if (categorySnapshot.exists) {
+        Map<String, dynamic> data =
+            categorySnapshot.data() as Map<String, dynamic>;
+        return data['cateName'] ??
+            "Unknown Category"; // Assuming 'cateName' is the field
+      } else {
+        return "Unknown Category"; // Handle case where the document does not exist
+      }
+    } catch (e) {
+      print("Error fetching category name: $e");
+      return "Error Fetching Name"; // Handle any errors gracefully
+    }
+  }
+
+  Future<CloudBill> createNewBill({
     required String userId,
     required double total,
-    required Timestamp billDateTime, // This combines date and time
-    required String companyId,
-    required String categoryId,
+    required Timestamp billDateTime,
+    required String coName,
+    required String cateName,
     required List<Map<String, dynamic>> items,
   }) async {
     try {
-      await bills.add({
+      // Create company and category and get their references
+      final companyRef = await createCompany(coName);
+      final categoryRef = await createCategory(cateName);
+
+      DocumentReference billRef = await bills.add({
         'userId': userId,
         'total': total,
         'billDateAndTime': billDateTime,
-        'companyId': companyId,
-        'categoryId': categoryId,
+        'companyId': companyRef,
+        'categoryId': categoryRef,
         'items': items
             .map((item) => {
                   'itemName': item['itemName'],
@@ -34,31 +176,33 @@ class FirebaseCloudStorage {
                 })
             .toList(),
       });
+      DocumentSnapshot billSnapshot = await billRef.get();
+      CloudBill createdBill = CloudBill.fromSnapshot(billSnapshot);
+
       print("Bill created successfully.");
+      return createdBill;
     } catch (e) {
       print("Error creating bill: $e");
-      throw CouldNotCreateBillException;
+      throw Exception("Failed to create bill");
     }
   }
 
-  Stream<Iterable<CloudBill>> getBills({required String id}) {
+  Stream<Iterable<CloudBill>> getBills({required String userId}) {
     return bills.snapshots().map((event) => event.docs
         .map((doc) => CloudBill.fromSnapshot(doc))
-        .where((bill) => bill.id == id));
+        .where((bill) => bill.id == userId));
   }
 
-  Future<Iterable<CloudBill>> getBillsForUser({required String userId}) async {
+  Future<List<CloudBill>> getBillsForUser({required String userId}) async {
     try {
       final querySnapshot = await FirebaseFirestore.instance
-          .collection('bills')
+          .collection('bill')
           .where('userId', isEqualTo: userId) // Filter by the specific user ID
           .get();
-
-      // Map over the querySnapshot's documents, converting each to a CloudBill using fromSnapshot
       Iterable<CloudBill> AllBills =
           querySnapshot.docs.map((doc) => CloudBill.fromSnapshot(doc));
 
-      return AllBills;
+      return AllBills.toList();
     } catch (e) {
       print('Error getting bills for user: $e');
       throw Exception('Failed to get bills');
@@ -72,9 +216,8 @@ class FirebaseCloudStorage {
     List<Map<String, dynamic>>? items,
   }) async {
     try {
-      // Reference to the bill document
       final billDocRef =
-          FirebaseFirestore.instance.collection('bills').doc(billId);
+          FirebaseFirestore.instance.collection('bill').doc(billId);
 
       // Prepare the update data
       Map<String, Object?> updates = {};
@@ -99,15 +242,15 @@ class FirebaseCloudStorage {
     }
   }
 
-Future<void> deleteBill({required String billId}) async {
-  try {
-    final billDocRef = FirebaseFirestore.instance.collection('bills').doc(billId);
-    await billDocRef.delete();
-    print("Bill deleted successfully.");
-  } catch (e) {
-    print("Error deleting bill: $e");
-    throw CouldNotDeleteBillException;
+  Future<void> deleteBill({required String billId}) async {
+    try {
+      final billDocRef =
+          FirebaseFirestore.instance.collection('bill').doc(billId);
+      await billDocRef.delete();
+      print("Bill deleted successfully.");
+    } catch (e) {
+      print("Error deleting bill: $e");
+      throw CouldNotDeleteBillException;
+    }
   }
-}
-
 }

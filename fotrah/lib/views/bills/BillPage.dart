@@ -4,6 +4,10 @@ import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/enums/menu_action.dart';
 import 'package:fotrah/services/auth/CRUD/bills_service.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
+import 'package:fotrah/services/cloud/cloud_bill.dart';
+import 'package:fotrah/services/cloud/firebase_cloud_storage.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({Key? key}) : super(key: key);
@@ -13,8 +17,8 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  late final billsService _billsService;
-  String get userEmail => AuthService.firebase().currentUser!.email!;
+  late final FirebaseCloudStorage _cloudStorage;
+  late String _userId;
 
   // UI
   int _currentIndex = 0;
@@ -27,13 +31,21 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void initState() {
-    _billsService = billsService();
-    _billsService.open();
+    _cloudStorage = FirebaseCloudStorage();
     super.initState();
+    _initializeUser();
+  }
+
+  Future<void> _initializeUser() async {
+    final user = AuthService.firebase().currentUser?.email;
+    if (user != null) {
+      _userId = user; // Here we fetch and store the user's UID
+      setState(() {}); // Trigger a rebuild if needed
+    }
   }
 
   Future<void> _showDeleteConfirmationDialog(
-      BuildContext context, int billId) async {
+      BuildContext context, String billId) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -54,7 +66,7 @@ class _MainPageState extends State<MainPage> {
 
     // If confirmed, delete the bill and refresh the list (if needed)
     if (shouldDelete ?? false) {
-      await _billsService.deleteBill(id: billId);
+      await _cloudStorage.deleteBill(billId: billId);
       setState(
           () {}); // This will refresh the UI if your list is built within this Widget.
     }
@@ -66,32 +78,32 @@ class _MainPageState extends State<MainPage> {
       appBar: AppBar(
         title: const Text("Main Page"),
         backgroundColor: Colors.blue,
-        actions: [
-          PopupMenuButton<MenuAction>(
-            onSelected: (result) async {
-              switch (result) {
-                case MenuAction.Logout:
-                  final shouldLogout = await showLogOutDialog(context);
-                  if (shouldLogout) {
-                    await AuthService.firebase().logOut();
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      loginRoute,
-                      (route) => false,
-                    );
-                  }
-                  break;
-              }
-            },
-            itemBuilder: (context) {
-              return const <PopupMenuEntry<MenuAction>>[
-                PopupMenuItem<MenuAction>(
-                  value: MenuAction.Logout,
-                  child: Text('Log out'),
-                ),
-              ];
-            },
-          ),
-        ],
+        // actions: [
+        //   PopupMenuButton<MenuAction>(
+        //     onSelected: (result) async {
+        //       switch (result) {
+        //         case MenuAction.Logout:
+        //           final shouldLogout = await showLogOutDialog(context);
+        //           if (shouldLogout) {
+        //             await AuthService.firebase().logOut();
+        //             Navigator.of(context).pushNamedAndRemoveUntil(
+        //               loginRoute,
+        //               (route) => false,
+        //             );
+        //           }
+        //           break;
+        //       }
+        //     },
+        //     itemBuilder: (context) {
+        //       return const <PopupMenuEntry<MenuAction>>[
+        //         PopupMenuItem<MenuAction>(
+        //           value: MenuAction.Logout,
+        //           child: Text('Log out'),
+        //         ),
+        //       ];
+        //     },
+        //   ),
+        // ],
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
@@ -153,74 +165,51 @@ class _MainPageState extends State<MainPage> {
 
   Widget _buildBody() {
     if (_currentIndex == 0) {
-      return FutureBuilder<DatabaseUser>(
-        future: _billsService.getOrCreateUser(email: userEmail),
+      return FutureBuilder<List<CloudBill>>(
+        future: _cloudStorage.getBillsForUser(
+            userId: _userId), // Assuming this method exists
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done &&
-              snapshot.hasData) {
-            return StreamBuilder<List<DatabaseBill>>(
-              stream: _billsService.AllBills,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(child: Text("Error: ${snapshot.error}"));
-                } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                  final bills = snapshot.data!;
-                  return ListView.builder(
-                    itemCount: bills.length,
-                    itemBuilder: (context, index) {
-                      final bill = bills[index];
-                      // Fetch and display company name using FutureBuilder
-                      return FutureBuilder<DatabaseCompany>(
-                        future: _billsService.getCompanyById(bill.companyID),
-                        builder: (context, companySnapshot) {
-                          print("Connection state: ${companySnapshot.connectionState}");
-                          print("Has data: ${companySnapshot.hasData}");
-                          print("Snapshot data: ${companySnapshot.data}");
-                          if (companySnapshot.connectionState ==
-                                  ConnectionState.done &&
-                              companySnapshot.hasData) {
-                            final company = companySnapshot.data!;
-                            // Check if the company name is not null and not empty
-                            final companyName = company.coName.isNotEmpty
-                                ? company.coName
-                                : "Unnamed Company";
-                            return ListTile(
-                              title: Text(
-                                  companyName), // Use the companyName variable here
-                              subtitle: Text(
-                                  "Total: ${bill.total.toStringAsFixed(2)}\nDate: ${bill.billDate}\nTime: ${bill.billTime}"),
-                              trailing: IconButton(
-                                icon: Icon(Icons.delete),
-                                onPressed: () => _showDeleteConfirmationDialog(
-                                    context, bill.billID),
-                              ),
-                            );
-                          } else {
-                            // Display a placeholder or loading indicator while waiting for company details
-                            return ListTile(
-                              title: const Text("Loading company..."),
-                              subtitle: Text(
-                                  "Total: ${bill.total.toStringAsFixed(2)}"),
-                              trailing: IconButton(
-                                icon: Icon(Icons.delete),
-                                onPressed: () => _showDeleteConfirmationDialog(
-                                    context, bill.billID),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  );
-                } else {
-                  return const Center(child: Text("No bills available"));
-                }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text("Error: ${snapshot.error}"));
+          } else if (snapshot.hasData) {
+            final billsList = snapshot.data!;
+            if (billsList.isEmpty) {
+              return const Center(child: Text("No bills available"));
+            }
+            return ListView.builder(
+              itemCount: billsList.length,
+              itemBuilder: (context, index) {
+                final bill = billsList[index];
+                return FutureBuilder<String>(
+                  future: _cloudStorage.getCompanyName(bill.companyId),
+                  builder: (context, companySnapshot) {
+                    // Your existing builder logic
+                    String companyName =
+                        companySnapshot.data ?? "Unknown Company";
+                    DateTime billDate = bill.billDateAndTime.toDate();
+                    String formattedDate =
+                        DateFormat('dd/MM/yyyy HH:mm').format(billDate);
+                    return ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pushNamed(
+                          BillDetailRoute,
+                          arguments: bill,
+                        );
+                      },
+                      child: ListTile(
+                        title: Text(companyName),
+                        subtitle: Text(
+                            "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
+                      ),
+                    );
+                  },
+                );
               },
             );
           } else {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: Text("No bills available"));
           }
         },
       );
@@ -233,8 +222,41 @@ class _MainPageState extends State<MainPage> {
         child: Text('No notification for now'),
       );
     } else if (_currentIndex == 3) {
-      return Center(
-        child: Text('Setting'),
+      return ListView(
+        children: <Widget>[
+          Card(
+            child: ListTile(
+              title: Text('Profile'),
+              trailing: Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.of(context).pushNamed(ProfileRoute);
+              },
+            ),
+          ),
+          Card(
+            child: ListTile(
+              title: Text('Set Notification'),
+              trailing: Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                // Navigate to set notification
+              },
+            ),
+          ),
+          Card(
+            child: ListTile(
+              title: Text('Logout'),
+              trailing: Icon(Icons.arrow_forward_ios),
+              onTap: () async {
+                final shouldLogout = await showLogOutDialog(context);
+                if (shouldLogout) {
+                  await AuthService.firebase().logOut();
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil(loginRoute, (route) => false);
+                }
+              },
+            ),
+          ),
+        ],
       );
     } else {
       return Center(

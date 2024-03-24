@@ -5,9 +5,9 @@ import 'package:fotrah/firebase_options.dart';
 import 'package:fotrah/services/auth/CRUD/bills_service.dart';
 import 'package:fotrah/services/auth/auth_exceptions.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
+import 'package:fotrah/services/cloud/firebase_cloud_storage.dart';
 import 'dart:developer' as devtools show log;
 import 'package:fotrah/utilities/show_error_dialog.dart';
-
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -106,7 +106,7 @@ class _RegisterViewState extends State<RegisterView> {
                 await AuthService.firebase()
                     .createUser(email: email, password: password);
                 AuthService.firebase().sendEmailVerificaiton();
-                await billsService().saveUserDetails(
+                await FirebaseCloudStorage().saveUserDetails(
                   email: email,
                   userName: userName,
                   phoneNumber: phoneNumber,
