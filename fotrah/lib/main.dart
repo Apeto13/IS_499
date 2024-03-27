@@ -11,7 +11,6 @@ import 'package:fotrah/views/bills/bill_details.dart';
 import 'package:fotrah/views/bills/profile.dart';
 import 'package:fotrah/views/bills/set_notification.dart';
 import 'package:fotrah/views/bills/terms_and_conditions.dart';
-import 'package:path/path.dart';
 import 'dart:developer' as devtools show log;
 import 'views/bills/new_bill_view.dart';
 

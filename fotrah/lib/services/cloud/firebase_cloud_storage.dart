@@ -11,107 +11,56 @@ class FirebaseCloudStorage {
 
   final bills = FirebaseFirestore.instance.collection('bill');
 
-  Future<double> getTotalSpendingForTimeFrame(TimeFrame timeFrame, String userId) async {
-  DateTime now = DateTime.now();
-  DateTime start;
-  DateTime end;
+  Future<double> getTotalSpendingForTimeFrame(
+      TimeFrame timeFrame, String userId) async {
+    DateTime now = DateTime.now();
+    DateTime start;
+    DateTime end;
 
-  switch (timeFrame) {
-    case TimeFrame.yearly:
-      start = DateTime(now.year);
-      end = DateTime(now.year + 1).subtract(Duration(days: 1));
-      break;
-    case TimeFrame.monthly:
-      start = DateTime(now.year, now.month);
-      end = DateTime(now.year, now.month + 1).subtract(Duration(days: 1));
-      break;
-    case TimeFrame.thisMonth:
-      start = DateTime(now.year, now.month);
-      end = DateTime(now.year, now.month + 1).subtract(Duration(days: 1));
-      break;
-  }
+    switch (timeFrame) {
+      case TimeFrame.AllTime:
+        start = DateTime(2000); 
+        end = DateTime(now.year, now.month, now.day + 1)
+            .subtract(Duration(seconds: 1)); 
+        break;
+      case TimeFrame.thisYear:
+        start = DateTime(now.year);
+        end = DateTime(now.year + 1).subtract(Duration(days: 1));
+        break;
+      case TimeFrame.thisMonth:
+        start = DateTime(now.year, now.month);
+        end = DateTime(now.year, now.month + 1).subtract(Duration(days: 1));
+        break;
+    }
 
-  final querySnapshot = await FirebaseFirestore.instance
-      .collection('bill')
-      .where('userId', isEqualTo: userId)
-      .where('billDateAndTime', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-      .where('billDateAndTime', isLessThanOrEqualTo: Timestamp.fromDate(end))
-      .get();
-
-  double totalSpent = querySnapshot.docs.fold(0, (sum, doc) {
-    return sum + (doc.data()['total'] as num).toDouble();
-  });
-
-  return totalSpent;
-}
-
-  Future<double> getBudgetForTimeFrame(TimeFrame timeFrame, String userId) async {
-  DateTime now = DateTime.now();
-  final budgetRef = FirebaseFirestore.instance.collection('budgets').doc('$userId-${now.year}-${now.month}');
-  final doc = await budgetRef.get();
-  if (!doc.exists) return 0;
-  double monthlyBudget = doc.data()?['budget'] ?? 0;
-  if (timeFrame == TimeFrame.yearly) return monthlyBudget * 12; 
-
-  return monthlyBudget; // Monthly and This Month share the same logic
-}
-  
-  Future<Map<String, double>> getTotalSpendingPerCategory(
-      {required String userId}) async {
     final querySnapshot = await FirebaseFirestore.instance
         .collection('bill')
         .where('userId', isEqualTo: userId)
+        .where('billDateAndTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('billDateAndTime', isLessThanOrEqualTo: Timestamp.fromDate(end))
         .get();
 
-    final Map<String, double> categoryTotals = {};
+    double totalSpent = querySnapshot.docs.fold(0, (sum, doc) {
+      return sum + (doc.data()['total'] as num).toDouble();
+    });
 
-    for (var doc in querySnapshot.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final total = data['total'] as num?;
-      final categoryRef = data['categoryId'] as DocumentReference?;
-      if (total != null && categoryRef != null) {
-        final categoryDoc = await categoryRef.get();
-        if (categoryDoc.exists) {
-          final categoryDocData = categoryDoc.data() as Map<String, dynamic>?;
-          final categoryName = categoryDocData?['cateName'] as String?;
-          if (categoryName != null) {
-            // Normalize category name to ensure case insensitivity
-            final normalizedCategoryName = categoryName.toLowerCase();
-            categoryTotals.update(
-                normalizedCategoryName, (value) => value + total.toDouble(),
-                ifAbsent: () => total.toDouble());
-          }
-        }
-      }
-    }
-    return categoryTotals;
+    return totalSpent;
   }
 
-  Future<Set<String>> getUniqueCategories({required String userId}) async {
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('bill')
-        .where('userId', isEqualTo: userId)
-        .get();
+  Future<double> getBudgetForTimeFrame(
+      TimeFrame timeFrame, String userId) async {
+    DateTime now = DateTime.now();
+    final budgetRef = FirebaseFirestore.instance
+        .collection('budgets')
+        .doc('$userId-${now.year}-${now.month}');
+    final doc = await budgetRef.get();
+    if (!doc.exists) return 0;
+    double monthlyBudget = doc.data()?['budget'] ?? 0;
+    if (timeFrame == TimeFrame.AllTime || timeFrame == TimeFrame.thisYear)
+      return monthlyBudget * 12;
 
-    final Set<String> uniqueCategories = {};
-
-    for (var doc in querySnapshot.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      final categoryRef = data['categoryId'] as DocumentReference?;
-      if (categoryRef != null) {
-        final categoryDoc = await categoryRef.get();
-        if (categoryDoc.exists) {
-          final categoryDocData = categoryDoc.data() as Map<String, dynamic>?;
-          final categoryName = categoryDocData?['cateName'] as String?;
-          if (categoryName != null) {
-            // Normalize category name to ensure case insensitivity
-            uniqueCategories.add(categoryName.toLowerCase());
-          }
-        }
-      }
-    }
-
-    return uniqueCategories;
+    return monthlyBudget;
   }
 
   Future<void> setUserBudget(
@@ -129,6 +78,76 @@ class FirebaseCloudStorage {
     });
   }
 
+  Future<Map<String, double>> getTotalSpendingPerCategoryForUser(
+      String userId, TimeFrame timeFrame) async {
+    Map<String, double> spendingPerCategory = {};
+    List<String> categories = [
+      "Housing",
+      "Utilities",
+      "Transportation",
+      "Groceries",
+      "Dining Out",
+      "Healthcare",
+      "Entertainment",
+      "Personal Care",
+      "Clothing",
+      "Education",
+      "Childcare",
+      "Pets",
+      "Savings and Investments",
+      "Gifts and Donations",
+      "Travel",
+      "Debts",
+      "Other"
+    ];
+
+    DateTime now = DateTime.now();
+    DateTime start;
+    DateTime end;
+
+    // Adjust start and end based on the time frame
+    switch (timeFrame) {
+      case TimeFrame.AllTime:
+        start = DateTime(2000); 
+        end = DateTime(now.year, now.month, now.day + 1)
+            .subtract(Duration(seconds: 1)); 
+        break;
+      case TimeFrame.thisYear:
+        start = DateTime(now.year);
+        end = DateTime(now.year + 1).subtract(Duration(days: 1));
+        break;
+      case TimeFrame.thisMonth:
+        start = DateTime(now.year, now.month);
+        end = DateTime(now.year, now.month + 1).subtract(Duration(days: 1));
+        break;
+    }
+
+    FirebaseFirestore db = FirebaseFirestore.instance;
+    for (String category in categories) {
+      DocumentReference categoryRef = db.collection('category').doc(category);
+
+      final querySnapshot = await db
+          .collection('bill')
+          .where('userId', isEqualTo: userId)
+          .where('categoryId',
+              isEqualTo: db.doc('category/$category')) // Use the reference path
+          .where('billDateAndTime',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('billDateAndTime',
+              isLessThanOrEqualTo: Timestamp.fromDate(end))
+          .get();
+
+      double totalSpentInCategory = querySnapshot.docs.fold(0, (sum, doc) {
+        final docData = doc.data() as Map<String, dynamic>;
+        final total = docData['total'] as num;
+        return sum + total.toDouble();
+      });
+      spendingPerCategory[category] = totalSpentInCategory;
+    }
+
+    return spendingPerCategory;
+  }
+
   Future<bool> checkBudgetNotification(
       {required String userId, required int year, required int month}) async {
     final startOfMonth = DateTime(year, month);
@@ -139,7 +158,6 @@ class FirebaseCloudStorage {
         .doc('$userId-$year-$month')
         .get();
     if (!budgetDoc.exists) {
-      print("No budget set for this month.");
       return false;
     }
 
@@ -148,9 +166,6 @@ class FirebaseCloudStorage {
         userId: userId,
         startOfMonth: Timestamp.fromDate(startOfMonth),
         endOfMonth: Timestamp.fromDate(endOfMonth));
-
-    print("Budget: $budget, Total Spent: $totalSpent");
-
     return totalSpent >= (budget - 50) && totalSpent <= budget;
   }
 
@@ -165,10 +180,7 @@ class FirebaseCloudStorage {
         .where('billDateAndTime', isGreaterThanOrEqualTo: startOfMonth)
         .where('billDateAndTime', isLessThanOrEqualTo: endOfMonth)
         .get();
-    print("userId: $userId");
-    print("Start Of The Month: $startOfMonth End of the month $endOfMonth");
     double totalSpent = 0;
-    print(totalSpent);
     for (var doc in querySnapshot.docs) {
       final docData = doc.data() as Map<String, dynamic>;
       final total =
@@ -317,47 +329,47 @@ class FirebaseCloudStorage {
   }
 
   Future<CloudBill> createNewBill({
-  required String userId,
-  required double total,
-  required Timestamp billDateTime,
-  required String coName,
-  required String categoryId,
-  required List<Map<String, dynamic>> items,
-}) async {
-  try {
-    // Create company and get their references
-    final companyRef = await createCompany(coName);
+    required String userId,
+    required double total,
+    required Timestamp billDateTime,
+    required String coName,
+    required String categoryId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      // Create company and get their references
+      final companyRef = await createCompany(coName);
 
-    // Assuming categories are pre-defined and you have their IDs
-    final categoryRef = FirebaseFirestore.instance.collection('category').doc(categoryId);
+      // Assuming categories are pre-defined and you have their IDs
+      final categoryRef =
+          FirebaseFirestore.instance.collection('category').doc(categoryId);
 
-    DocumentReference billRef = await bills.add({
-      'userId': userId,
-      'total': total,
-      'billDateAndTime': billDateTime,
-      'companyId': companyRef,
-      'categoryId': categoryRef,
-      'items': items.map((item) {
-        return {
-          'itemName': item['itemName'],
-          'type': item['type'],
-          'price': item['price'],
-          'quantity': item['quantity'],
-        };
-      }).toList(),
-    });
+      DocumentReference billRef = await bills.add({
+        'userId': userId,
+        'total': total,
+        'billDateAndTime': billDateTime,
+        'companyId': companyRef,
+        'categoryId': categoryRef,
+        'items': items.map((item) {
+          return {
+            'itemName': item['itemName'],
+            'type': item['type'],
+            'price': item['price'],
+            'quantity': item['quantity'],
+          };
+        }).toList(),
+      });
 
-    DocumentSnapshot billSnapshot = await billRef.get();
-    CloudBill createdBill = CloudBill.fromSnapshot(billSnapshot);
+      DocumentSnapshot billSnapshot = await billRef.get();
+      CloudBill createdBill = CloudBill.fromSnapshot(billSnapshot);
 
-    print("Bill created successfully.");
-    return createdBill;
-  } catch (e) {
-    print("Error creating bill: $e");
-    throw Exception("Failed to create bill");
+      print("Bill created successfully.");
+      return createdBill;
+    } catch (e) {
+      print("Error creating bill: $e");
+      throw Exception("Failed to create bill");
+    }
   }
-}
-
 
   Stream<Iterable<CloudBill>> getBills({required String userId}) {
     return bills.snapshots().map((event) => event.docs
@@ -389,19 +401,24 @@ class FirebaseCloudStorage {
     List<Map<String, dynamic>>? items,
   }) async {
     try {
-      final billDocRef = FirebaseFirestore.instance.collection('bill').doc(billId);
+      final billDocRef =
+          FirebaseFirestore.instance.collection('bill').doc(billId);
 
       Map<String, Object?> updates = {};
       if (total != null) updates['total'] = total;
       if (billDateTime != null) updates['billDateAndTime'] = billDateTime;
-      if (categoryId != null) updates['categoryId'] = FirebaseFirestore.instance.collection('category').doc(categoryId);
+      if (categoryId != null)
+        updates['categoryId'] =
+            FirebaseFirestore.instance.collection('category').doc(categoryId);
       if (items != null) {
-        updates['items'] = items.map((item) => {
-          'itemName': item['itemName'],
-          'type': item['type'],
-          'price': item['price'],
-          'quantity': item['quantity'],
-        }).toList();
+        updates['items'] = items
+            .map((item) => {
+                  'itemName': item['itemName'],
+                  'type': item['type'],
+                  'price': item['price'],
+                  'quantity': item['quantity'],
+                })
+            .toList();
       }
 
       await billDocRef.update(updates);
@@ -412,11 +429,11 @@ class FirebaseCloudStorage {
     }
   }
 
-
-Future<void> deleteBill({required String billId}) async {
+  Future<void> deleteBill({required String billId}) async {
     try {
       // First, retrieve the bill document to get the company reference
-      final billDocRef = FirebaseFirestore.instance.collection('bill').doc(billId);
+      final billDocRef =
+          FirebaseFirestore.instance.collection('bill').doc(billId);
       final billDoc = await billDocRef.get();
       if (billDoc.exists) {
         final data = billDoc.data() as Map<String, dynamic>;

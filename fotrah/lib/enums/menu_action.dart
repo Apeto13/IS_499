@@ -1,3 +1,3 @@
 enum MenuAction { Logout }
-enum TimeFrame { yearly, monthly, thisMonth }
+enum TimeFrame { AllTime, thisYear, thisMonth }
 

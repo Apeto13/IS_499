@@ -205,7 +205,7 @@ class _MainPageState extends State<MainPage> {
                         subtitle: Text(
                             "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
                         trailing: Wrap(
-                          spacing: 12, // space between two icons
+                          spacing: 12,
                           children: <Widget>[
                             IconButton(
                               icon: Icon(Icons.visibility,
@@ -236,7 +236,6 @@ class _MainPageState extends State<MainPage> {
         },
       );
     } else if (_currentIndex == 2) {
-      // Assuming this is within a StatefulWidget that has access to _cloudStorage
       final String userId = AuthService.firebase().currentUser!.email;
       final DateTime now = DateTime.now();
       return FutureBuilder<bool>(
@@ -246,7 +245,6 @@ class _MainPageState extends State<MainPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasData && snapshot.data!) {
-            // User is nearing their budget limit
             return  Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),

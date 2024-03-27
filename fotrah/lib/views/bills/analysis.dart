@@ -13,24 +13,24 @@ class AnalyticsPage extends StatefulWidget {
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  TimeFrame selectedTimeFrame = TimeFrame.monthly;
-  double totalSpending = 0.0;
-  double budget = 0.0;
+  TimeFrame selectedTimeFrame = TimeFrame.thisYear;
   int touchedIndex = -1;
   late final FirebaseCloudStorage _cloudStorage;
   late String _userId;
+  List<PieChartSectionData> pieChartSections = [];
+  double totalSpending = 0.0;
+  double budget = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _cloudStorage = FirebaseCloudStorage(); // Initialize _cloudStorage here
-    _userId = AuthService.firebase().currentUser?.email ??
-        ''; // Make sure to handle the case where email might be null
-    updateTimeFrameData(); // Now it's safe to call this since _cloudStorage is initialized
+    _cloudStorage = FirebaseCloudStorage();
+    _userId = AuthService.firebase().currentUser?.email ?? '';
+    _fetchAndBuildPieChart();
+    updateTimeFrameData();
   }
 
   void setTimeFrame(TimeFrame frame) {
-    //final _userId = AuthService.firebase().currentUser?.email;
     setState(() {
       selectedTimeFrame = frame;
     });
@@ -46,71 +46,68 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       totalSpending = newTotalSpending;
       budget = newBudget;
     });
+    _fetchAndBuildPieChart();
   }
 
-  List<PieChartSectionData> showingSections() {
-    return List.generate(4, (i) {
-      final isTouched = i == touchedIndex;
-      final fontSize = isTouched ? 25.0 : 16.0;
-      final radius = isTouched ? 60.0 : 50.0;
-      const shadows = [Shadow(color: Colors.black, blurRadius: 2)];
-      switch (i) {
-        case 0:
-          return PieChartSectionData(
-            color: Colors.blue,
-            value: 40,
-            title: '40%',
-            radius: radius,
-            titleStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: shadows,
-            ),
-          );
-        case 1:
-          return PieChartSectionData(
-            color: Colors.yellow,
-            value: 30,
-            title: '30%',
-            radius: radius,
-            titleStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: shadows,
-            ),
-          );
-        case 2:
-          return PieChartSectionData(
-            color: Colors.purple,
-            value: 15,
-            title: '15%',
-            radius: radius,
-            titleStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: shadows,
-            ),
-          );
-        case 3:
-          return PieChartSectionData(
-            color: Colors.green,
-            value: 15,
-            title: '15%',
-            radius: radius,
-            titleStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              shadows: shadows,
-            ),
-          );
-        default:
-          throw Error();
-      }
+Future<void> _fetchAndBuildPieChart() async {
+    final spendingPerCategory = await _cloudStorage
+      .getTotalSpendingPerCategoryForUser(_userId, selectedTimeFrame);
+  _updatePieChartSections(spendingPerCategory);
+}
+
+  void _updatePieChartSections(Map<String, double> spendingPerCategory) {
+    final sections = _pieChartSections(spendingPerCategory);
+    setState(() {
+      pieChartSections = sections;
     });
+  }
+
+  List<PieChartSectionData> _pieChartSections(
+      Map<String, double> spendingPerCategory) {
+    final isNotEmpty = spendingPerCategory.values.any((value) => value > 0);
+    if (!isNotEmpty) {
+      return [];
+    }
+    final totalSpending =
+        spendingPerCategory.values.fold(0.0, (sum, item) => sum + item);
+    return spendingPerCategory.entries.map((entry) {
+      final categoryPercentage = (entry.value / totalSpending) * 100;
+      return PieChartSectionData(
+        color: _getColorForCategory(entry.key),
+        value: categoryPercentage,
+        title: '${entry.key}\n${categoryPercentage.toStringAsFixed(1)}%',
+        radius: 50,
+        titleStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xffffffff)),
+        titlePositionPercentageOffset: 0.55,
+      );
+    }).toList();
+  }
+
+  Color _getColorForCategory(String category) {
+    const categoryColors = <String, Color>{
+      "Housing": Colors.red,
+      "Utilities": Colors.green,
+      "Transportation": Colors.blue,
+      "Groceries": Colors.orange,
+      "Dining Out": Colors.purple,
+      "Healthcare": Colors.yellow,
+      "Entertainment": Colors.cyan,
+      "Personal Care": Colors.brown,
+      "Clothing": Colors.pink,
+      "Education": Colors.lime,
+      "Childcare": Colors.indigo,
+      "Pets": Colors.teal,
+      "Savings and Investments": Colors.grey,
+      "Gifts and Donations": Colors.amber,
+      "Travel": Colors.deepOrange,
+      "Debts": Colors.blueGrey,
+      "Other": Colors.lightBlue,
+    };
+
+    return categoryColors[category] ?? Colors.black; // Fallback color
   }
 
   final List<BarChartGroupData> barGroups = [
@@ -128,6 +125,50 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     ]),
   ];
 
+  Map<String, Color> categoryColors = {
+    "Housing": Colors.red,
+    "Utilities": Colors.green,
+    "Transportation": Colors.blue,
+    "Groceries": Colors.orange,
+    "Dining Out": Colors.purple,
+    "Healthcare": Colors.yellow,
+    "Entertainment": Colors.cyan,
+    "Personal Care": Colors.brown,
+    "Clothing": Colors.pink,
+    "Education": Colors.lime,
+    "Childcare": Colors.indigo,
+    "Pets": Colors.teal,
+    "Savings & Investments": Colors.grey,
+    "Gifts & Donations": Colors.amber,
+    "Travel": Colors.deepOrange,
+    "Debts": Colors.blueGrey,
+    "Other": Colors.lightBlue,
+  };
+
+  List<Widget> generateLegendWidgets() {
+    List<Widget> legendWidgets = [];
+    categoryColors.forEach((category, color) {
+      legendWidgets.add(
+        Row(
+          children: [
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            SizedBox(width: 8),
+            Text(category),
+          ],
+        ),
+      );
+      legendWidgets.add(SizedBox(height: 4)); // Spacer between legend items
+    });
+    return legendWidgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,21 +183,17 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         ),
         centerTitle: true,
         backgroundColor: Colors.blue,
-        elevation: 10, // Adds shadow to the AppBar
-        shadowColor: Colors.blueAccent.shade100, // Customizes the shadow color
-        shape: RoundedRectangleBorder(
+        elevation: 10,
+        shadowColor: Colors.blueAccent.shade100,
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            bottom:
-                Radius.circular(30), // Adds a curve to the bottom of the AppBar
+            bottom: Radius.circular(30),
           ),
         ),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                Colors.blue,
-                Colors.blueAccent.shade700
-              ], // Gradient colors
+              colors: [Colors.blue, Colors.blueAccent.shade700],
               begin: Alignment.bottomRight,
               end: Alignment.topLeft,
             ),
@@ -167,21 +204,21 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         child: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.only(),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
                   ToggleButton(
-                    title: 'Yearly',
+                    title: 'All Time',
                     selectedTimeFrame: selectedTimeFrame,
-                    timeFrame: TimeFrame.yearly,
-                    onPressed: () => setTimeFrame(TimeFrame.yearly),
+                    timeFrame: TimeFrame.AllTime,
+                    onPressed: () => setTimeFrame(TimeFrame.AllTime),
                   ),
                   ToggleButton(
-                    title: 'Monthly',
+                    title: 'This year',
                     selectedTimeFrame: selectedTimeFrame,
-                    timeFrame: TimeFrame.monthly,
-                    onPressed: () => setTimeFrame(TimeFrame.monthly),
+                    timeFrame: TimeFrame.thisYear,
+                    onPressed: () => setTimeFrame(TimeFrame.thisYear),
                   ),
                   ToggleButton(
                     title: 'This Month',
@@ -192,26 +229,24 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 ],
               ),
             ),
-
-            // Horizontal layout for Total, Budget and Pie Chart
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 DisplayCard(title: 'Total Spending', value: totalSpending),
                 DisplayCard(title: 'Budget', value: budget),
               ],
-            ),
-
+            ), //height: MediaQuery.of(context).size.height * 0.4, // Adjust height as needed
             Container(
-              height: 320, // Adjust the height to fit the chart and indicators
+              height: 320,
               child: Card(
                 elevation: 4.0,
                 margin: const EdgeInsets.all(8.0),
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: Column(
+                  child: Row(
                     children: [
                       Expanded(
+                        flex: 3, // Give more space to the pie chart
                         child: PieChart(
                           PieChartData(
                             pieTouchData: PieTouchData(
@@ -230,31 +265,54 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                               },
                             ),
                             borderData: FlBorderData(show: false),
-                            sections: showingSections(),
-                            sectionsSpace: 1,
+                            sections: pieChartSections.map((section) {
+                              final isTouched =
+                                  pieChartSections.indexOf(section) ==
+                                      touchedIndex;
+                              final fontSize = isTouched ? 18.0 : 16.0;
+                              final radius = isTouched ? 60.0 : 50.0;
+                              return PieChartSectionData(
+                                color: section.color,
+                                value: section.value,
+                                title: section.title,
+                                radius: radius,
+                                titleStyle: TextStyle(
+                                  fontSize: fontSize,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color.fromARGB(255, 0, 0, 0),
+                                ),
+                              );
+                            }).toList(), // Your dynamic section data here
+                            sectionsSpace: 0,
                             centerSpaceRadius: 40,
                           ),
-                          swapAnimationDuration:
-                              Duration(milliseconds: 150), // Optional
-                          swapAnimationCurve: Curves.linear, // Optional
                         ),
                       ),
-                      // Indicators
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Column(
-                          children: [
-                            Indicator(
-                                color: Colors.red,
-                                text: 'Category 1',
-                                isSquare: true),
-                            SizedBox(height: 4),
-                            Indicator(
-                                color: Colors.green,
-                                text: 'Category 2',
-                                isSquare: true),
-                            // Add more indicators as needed
-                          ],
+                      Expanded(
+                        flex: 2, // Allocate more space for the legend
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.only(),
+                            child: Column(
+                              children: [
+                                // Your dynamic legend items here
+                                for (var i = 0;
+                                    i < pieChartSections.length;
+                                    i++)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 2.0),
+                                    child: Indicator(
+                                      color: pieChartSections[i].color,
+                                      text: pieChartSections[i].title,
+                                      isSquare: true,
+                                      textStyle: const TextStyle(
+                                          fontSize: 10.9), // Smaller text size
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -263,7 +321,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               ),
             ),
 
-            // Container for Bar Chart to ensure it has size
             Card(
               elevation: 4.0,
               margin: const EdgeInsets.all(8.0),
@@ -396,11 +453,14 @@ class Indicator extends StatelessWidget {
   final Color color;
   final String text;
   final bool isSquare;
+  final TextStyle textStyle; // Add the textStyle parameter
+
   const Indicator({
     Key? key,
     required this.color,
     required this.text,
     this.isSquare = false,
+    this.textStyle = const TextStyle(fontSize: 14), // Provide a default style
   }) : super(key: key);
 
   @override
@@ -416,7 +476,7 @@ class Indicator extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(text, style: TextStyle(fontSize: 16)),
+        Text(text, style: textStyle), // Use the textStyle parameter here
       ],
     );
   }
