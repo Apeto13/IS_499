@@ -7,7 +7,7 @@ class CouldNotCreateBillException extends CloudStorageException {}
 
 class CouldNotGettAllBillsException extends CloudStorageException {}
 
-class CouldNotUpdateBillExcetion extends CloudStorageException {}
+class CouldNotUpdateBillException extends CloudStorageException {}
 
 class CouldNotDeleteBillException extends CloudStorageException {}
 

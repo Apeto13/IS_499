@@ -48,20 +48,11 @@ class FirebaseCloudStorage {
   Future<double> getBudgetForTimeFrame(TimeFrame timeFrame, String userId) async {
   DateTime now = DateTime.now();
   final budgetRef = FirebaseFirestore.instance.collection('budgets').doc('$userId-${now.year}-${now.month}');
-
   final doc = await budgetRef.get();
-
-  if (!doc.exists) {
-    return 0; // No budget set
-  }
-
+  if (!doc.exists) return 0;
   double monthlyBudget = doc.data()?['budget'] ?? 0;
+  if (timeFrame == TimeFrame.yearly) return monthlyBudget * 12; 
 
-  if (timeFrame == TimeFrame.yearly) {
-    print("firebase: $monthlyBudget");
-    return monthlyBudget * 12; // Yearly budget
-  }
-  print("firebase: $monthlyBudget");
   return monthlyBudget; // Monthly and This Month share the same logic
 }
   
@@ -326,43 +317,47 @@ class FirebaseCloudStorage {
   }
 
   Future<CloudBill> createNewBill({
-    required String userId,
-    required double total,
-    required Timestamp billDateTime,
-    required String coName,
-    required String cateName,
-    required List<Map<String, dynamic>> items,
-  }) async {
-    try {
-      // Create company and category and get their references
-      final companyRef = await createCompany(coName);
-      final categoryRef = await createCategory(cateName);
+  required String userId,
+  required double total,
+  required Timestamp billDateTime,
+  required String coName,
+  required String categoryId,
+  required List<Map<String, dynamic>> items,
+}) async {
+  try {
+    // Create company and get their references
+    final companyRef = await createCompany(coName);
 
-      DocumentReference billRef = await bills.add({
-        'userId': userId,
-        'total': total,
-        'billDateAndTime': billDateTime,
-        'companyId': companyRef,
-        'categoryId': categoryRef,
-        'items': items
-            .map((item) => {
-                  'itemName': item['itemName'],
-                  'type': item['type'],
-                  'price': item['price'],
-                  'quantity': item['quantity'],
-                })
-            .toList(),
-      });
-      DocumentSnapshot billSnapshot = await billRef.get();
-      CloudBill createdBill = CloudBill.fromSnapshot(billSnapshot);
+    // Assuming categories are pre-defined and you have their IDs
+    final categoryRef = FirebaseFirestore.instance.collection('category').doc(categoryId);
 
-      print("Bill created successfully.");
-      return createdBill;
-    } catch (e) {
-      print("Error creating bill: $e");
-      throw Exception("Failed to create bill");
-    }
+    DocumentReference billRef = await bills.add({
+      'userId': userId,
+      'total': total,
+      'billDateAndTime': billDateTime,
+      'companyId': companyRef,
+      'categoryId': categoryRef,
+      'items': items.map((item) {
+        return {
+          'itemName': item['itemName'],
+          'type': item['type'],
+          'price': item['price'],
+          'quantity': item['quantity'],
+        };
+      }).toList(),
+    });
+
+    DocumentSnapshot billSnapshot = await billRef.get();
+    CloudBill createdBill = CloudBill.fromSnapshot(billSnapshot);
+
+    print("Bill created successfully.");
+    return createdBill;
+  } catch (e) {
+    print("Error creating bill: $e");
+    throw Exception("Failed to create bill");
   }
+}
+
 
   Stream<Iterable<CloudBill>> getBills({required String userId}) {
     return bills.snapshots().map((event) => event.docs
@@ -390,44 +385,56 @@ class FirebaseCloudStorage {
     required String billId,
     double? total,
     Timestamp? billDateTime,
+    String? categoryId,
     List<Map<String, dynamic>>? items,
   }) async {
     try {
-      final billDocRef =
-          FirebaseFirestore.instance.collection('bill').doc(billId);
+      final billDocRef = FirebaseFirestore.instance.collection('bill').doc(billId);
 
-      // Prepare the update data
       Map<String, Object?> updates = {};
       if (total != null) updates['total'] = total;
       if (billDateTime != null) updates['billDateAndTime'] = billDateTime;
-      if (items != null)
-        updates['items'] = items
-            .map((item) => {
-                  'itemName': item['itemName'],
-                  'type': item['type'],
-                  'price': item['price'],
-                  'quantity': item['quantity'],
-                })
-            .toList();
+      if (categoryId != null) updates['categoryId'] = FirebaseFirestore.instance.collection('category').doc(categoryId);
+      if (items != null) {
+        updates['items'] = items.map((item) => {
+          'itemName': item['itemName'],
+          'type': item['type'],
+          'price': item['price'],
+          'quantity': item['quantity'],
+        }).toList();
+      }
 
-      // Execute the update
       await billDocRef.update(updates);
       print("Bill updated successfully.");
     } catch (e) {
       print("Error updating bill: $e");
-      throw CouldNotUpdateBillExcetion();
+      throw CouldNotUpdateBillException(); // Ensure this exception is defined
     }
   }
 
-  Future<void> deleteBill({required String billId}) async {
+
+Future<void> deleteBill({required String billId}) async {
     try {
-      final billDocRef =
-          FirebaseFirestore.instance.collection('bill').doc(billId);
-      await billDocRef.delete();
-      print("Bill deleted successfully.");
+      // First, retrieve the bill document to get the company reference
+      final billDocRef = FirebaseFirestore.instance.collection('bill').doc(billId);
+      final billDoc = await billDocRef.get();
+      if (billDoc.exists) {
+        final data = billDoc.data() as Map<String, dynamic>;
+        final companyRef = data['companyId'] as DocumentReference?;
+
+        // Delete the bill document
+        await billDocRef.delete();
+        print("Bill deleted successfully.");
+
+        // If there's a company reference, attempt to delete the company document
+        if (companyRef != null) {
+          await companyRef.delete();
+          print("Associated company deleted successfully.");
+        }
+      }
     } catch (e) {
-      print("Error deleting bill: $e");
-      throw CouldNotDeleteBillException;
+      print("Error deleting bill or associated company: $e");
+      throw CouldNotDeleteBillException(); // Make sure this exception is defined somewhere
     }
   }
 }

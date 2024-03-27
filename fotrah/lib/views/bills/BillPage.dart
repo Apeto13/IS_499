@@ -57,7 +57,11 @@ class _MainPageState extends State<MainPage> {
             child: Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () {
+              Navigator.of(context).pop(true);
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Bill deleted successfully')));
+            },
             child: Text('Delete'),
           ),
         ],
@@ -84,7 +88,28 @@ class _MainPageState extends State<MainPage> {
             color: Colors.white,
           ),
         ),
+        centerTitle: true,
         backgroundColor: Colors.blue,
+        elevation: 10, // Adds shadow to the AppBar
+        shadowColor: Colors.blueAccent.shade100, // Customizes the shadow color
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            bottom:
+                Radius.circular(30), // Adds a curve to the bottom of the AppBar
+          ),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue,
+                Colors.blueAccent.shade700
+              ], // Gradient colors
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
@@ -222,18 +247,18 @@ class _MainPageState extends State<MainPage> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasData && snapshot.data!) {
             // User is nearing their budget limit
-            return const Center(
+            return  Center(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16.0),
                 child: Card(
                   elevation: 4, // Adds shadow to the card
                   child: Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Column(
                       mainAxisSize: MainAxisSize
                           .min, // Minimize the column's size to fit its children
                       children: [
-                        Text(
+                        const Text(
                           'Budget Alert',
                           style: TextStyle(
                             fontSize: 20,
@@ -241,12 +266,29 @@ class _MainPageState extends State<MainPage> {
                             color: Colors.red,
                           ),
                         ),
-                        SizedBox(
-                            height: 10), // Spacing between title and content
-                        Text(
+                        const SizedBox(height: 10),
+                        const Text(
                           'You are close to reaching your monthly budget!',
                           style: TextStyle(fontSize: 16),
                           textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20), // Spacing before the button
+                        ElevatedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'You are close to reaching your monthly budget!',
+                                  style: TextStyle(
+                                      color: Colors.red), // Make text color red
+                                ),
+                                backgroundColor: Colors
+                                    .white, // Optional: Change background color
+                              ),
+                            );
+                            Navigator.of(context).pushNamed(SetNotificationRoute);
+                          },
+                          child: const Text('Check Budget'),
                         ),
                       ],
                     ),

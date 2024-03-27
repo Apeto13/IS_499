@@ -86,24 +86,25 @@ class CloudCompany {
 
 class CloudCategory {
   final String id;
-  final String cateName;
+  final List<String> cateNames;
 
   CloudCategory({
     required this.id,
-    required this.cateName,
+    required this.cateNames,
   });
 
   factory CloudCategory.fromSnapshot(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    List<String> names = List.from(data['cateNames'] ?? []);
     return CloudCategory(
       id: doc.id,
-      cateName: data['cateName'],
+      cateNames: names,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'cateName': cateName,
+      'cateNames': cateNames,
     };
   }
 }

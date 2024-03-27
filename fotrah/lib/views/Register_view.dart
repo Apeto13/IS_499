@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:fotrah/constants/routes.dart';
-import 'package:fotrah/firebase_options.dart';
-import 'package:fotrah/services/auth/CRUD/bills_service.dart';
 import 'package:fotrah/services/auth/auth_exceptions.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
-import 'package:fotrah/services/cloud/firebase_cloud_storage.dart';
-import 'dart:developer' as devtools show log;
 import 'package:fotrah/utilities/show_error_dialog.dart';
+import 'package:fotrah/services/cloud/firebase_cloud_storage.dart';
 
 class RegisterView extends StatefulWidget {
-  const RegisterView({super.key});
+  const RegisterView({Key? key}) : super(key: key);
 
   @override
-  _RegisterViewState createState() => _RegisterViewState();
+  State<RegisterView> createState() => _RegisterViewState();
 }
 
 class _RegisterViewState extends State<RegisterView> {
@@ -24,11 +20,11 @@ class _RegisterViewState extends State<RegisterView> {
 
   @override
   void initState() {
+    super.initState();
     _userName = TextEditingController();
     _phoneNumber = TextEditingController();
     _email = TextEditingController();
     _password = TextEditingController();
-    super.initState();
   }
 
   @override
@@ -43,98 +39,108 @@ class _RegisterViewState extends State<RegisterView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Register"),
+       appBar: AppBar(
+        title: const Text(
+          "Register",
+          style: TextStyle(
+            fontSize: 25.0,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.blue,
+        elevation: 10, // Adds shadow to the AppBar
+        shadowColor: Colors.blueAccent.shade100, // Customizes the shadow color
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            bottom:
+                Radius.circular(30), // Adds a curve to the bottom of the AppBar
+          ),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue,
+                Colors.blueAccent.shade700
+              ], // Gradient colors
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
-      body: Column(
-        children: [
-          SizedBox(height: 150.0),
-          TextField(
-            controller: _userName,
-            decoration: InputDecoration(
-              hintText: '  username',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(25.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: _userName,
+              decoration: const InputDecoration(
+                hintText: 'Username',
+                border: OutlineInputBorder(),
               ),
             ),
-          ),
-          SizedBox(height: 5.0),
-          TextField(
+            const SizedBox(height: 10),
+            TextField(
               controller: _phoneNumber,
-              decoration: InputDecoration(
-                hintText: '  Phone Number',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                ),
+              decoration: const InputDecoration(
+                hintText: 'Phone Number',
+                border: OutlineInputBorder(),
               ),
-              keyboardType: TextInputType.phone),
-          SizedBox(height: 5.0),
-          TextField(
-            controller: _email,
-            decoration: InputDecoration(
-              hintText: '  Email',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(25.0),
-              ),
+              keyboardType: TextInputType.phone,
             ),
-            enableSuggestions: false,
-            autocorrect: false,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          SizedBox(height: 5.0),
-          TextField(
-            controller: _password,
-            decoration: InputDecoration(
-              hintText: '  Password',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(25.0),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _email,
+              decoration: const InputDecoration(
+                hintText: 'Email',
+                border: OutlineInputBorder(),
               ),
+              keyboardType: TextInputType.emailAddress,
             ),
-            obscureText: true,
-            enableSuggestions: false,
-            autocorrect: false,
-          ),
-          SizedBox(height: 5.0),
-          TextButton(
-            onPressed: () async {
-              final email = _email.text;
-              final password = _password.text;
-              final userName = _userName.text;
-              final phoneNumber = _phoneNumber.text;
-              try {
-                await AuthService.firebase()
-                    .createUser(email: email, password: password);
-                AuthService.firebase().sendEmailVerificaiton();
-                await FirebaseCloudStorage().saveUserDetails(
-                  email: email,
-                  userName: userName,
-                  phoneNumber: phoneNumber,
-                );
-                Navigator.of(context).pushNamed(VerifyEmailRoute);
-              } on WeakPasswordAuthException {
-                await showErrorDialog(
-                    context, "The password you are using is weak!");
-              } on EmailAlreadyInUseAuthException {
-                await showErrorDialog(context, "Email already in use!");
-              } on InvalidEmailAuthException {
-                await showErrorDialog(context, "email does not exist!");
-              } on GenericAuthException {
-                await showErrorDialog(context, "Unable to register! ");
-              }
-            },
-            child: const Text('Register'),
-          ),
-          TextButton(
-              onPressed: () {
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  loginRoute,
-                  (route) => false,
-                );
-              },
-              child: const Text("Login"))
-        ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: _password,
+              decoration: const InputDecoration(
+                hintText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _register,
+              child: const Text('Register'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context)
+                  .pushNamedAndRemoveUntil(loginRoute, (route) => false),
+              child: const Text("Already have an account? Login"),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _register() async {
+    final email = _email.text;
+    final password = _password.text;
+    final userName = _userName.text;
+    final phoneNumber = _phoneNumber.text;
+    try {
+      await AuthService.firebase().createUser(email: email, password: password);
+      await AuthService.firebase().sendEmailVerificaiton();
+      await FirebaseCloudStorage().saveUserDetails(
+        email: email,
+        userName: userName,
+        phoneNumber: phoneNumber,
+      );
+      Navigator.of(context).pushNamed(VerifyEmailRoute);
+    } catch (e) {
+      await showErrorDialog(context, "Failed to register: ${e.toString()}");
+    }
   }
 }

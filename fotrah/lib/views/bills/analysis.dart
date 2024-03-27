@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:fotrah/services/auth/auth_service.dart';
 import 'package:fotrah/services/cloud/firebase_cloud_storage.dart';
 import 'package:fotrah/enums/menu_action.dart';
@@ -31,7 +30,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   void setTimeFrame(TimeFrame frame) {
-    final _userId = AuthService.firebase().currentUser?.email;
+    //final _userId = AuthService.firebase().currentUser?.email;
     setState(() {
       selectedTimeFrame = frame;
     });
@@ -47,58 +46,6 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       totalSpending = newTotalSpending;
       budget = newBudget;
     });
-  }
-
-  Future<Map<String, double>> fetchAndCalculateTotalsByCategory(
-      String userId, TimeFrame timeframe) async {
-    // Your logic here to fetch bills from Firestore based on the userId and timeframe
-    // For example, you fetch all bills for the user within the selected timeframe
-    // Then, aggregate totals by category
-    Map<String, double> categoryTotals = {};
-
-    // Example of what you might do (this is pseudocode and won't run directly)
-    final bills = await FirebaseFirestore.instance
-        .collection('bills')
-        // Your query here to fetch bills based on the timeframe
-        .get();
-
-    for (var bill in bills.docs) {
-      String category =
-          bill.data()['category']; // Assuming each bill has a 'category' field
-      double total =
-          bill.data()['total']; // Assuming each bill has a 'total' field
-
-      // Aggregate totals by category
-      if (categoryTotals.containsKey(category)) {
-        categoryTotals[category] = (categoryTotals[category] ?? 0) + total;
-      } else {
-        categoryTotals[category] = total;
-      }
-    }
-
-    return categoryTotals;
-  }
-
-  Future<List<PieChartSectionData>> generatePieSections(
-      String userId, TimeFrame timeframe) async {
-    Map<String, double> totalsByCategory =
-        await fetchAndCalculateTotalsByCategory(userId, timeframe);
-
-    List<PieChartSectionData> sections = [];
-    totalsByCategory.forEach((category, total) {
-      // Convert each category and its total into a section of the pie chart
-      // You would also assign a color to each section here
-      // This is an example, you need to adjust it based on your actual categories and desired colors
-      sections.add(PieChartSectionData(
-        color:
-            Colors.blue, // You'd likely want a way to dynamically assign colors
-        value: total,
-        title: '$total',
-        // Additional styling as needed
-      ));
-    });
-
-    return sections;
   }
 
   List<PieChartSectionData> showingSections() {
@@ -185,12 +132,40 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Analytics'),
+        title: const Text(
+          "Analysis",
+          style: TextStyle(
+            fontSize: 25.0,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.blue,
+        elevation: 10, // Adds shadow to the AppBar
+        shadowColor: Colors.blueAccent.shade100, // Customizes the shadow color
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            bottom:
+                Radius.circular(30), // Adds a curve to the bottom of the AppBar
+          ),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.blue,
+                Colors.blueAccent.shade700
+              ], // Gradient colors
+              begin: Alignment.bottomRight,
+              end: Alignment.topLeft,
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
           children: <Widget>[
-            // Toggle buttons for selecting the time frame
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -370,10 +345,11 @@ class DisplayCard extends StatelessWidget {
             children: [
               Text(title,
                   style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+                      fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text('${value.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 16)),
+              Text("\$${value.toStringAsFixed(2)}",
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -387,19 +363,19 @@ class ToggleButton extends StatelessWidget {
   final String title;
   final TimeFrame timeFrame;
   final VoidCallback onPressed;
-  final TimeFrame selectedTimeFrame; // Add this line
+  final TimeFrame selectedTimeFrame;
 
   const ToggleButton({
     Key? key,
     required this.title,
     required this.onPressed,
     required this.timeFrame,
-    required this.selectedTimeFrame, // Add this line
+    required this.selectedTimeFrame,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    bool isSelected = selectedTimeFrame == timeFrame; // Use it here
+    bool isSelected = selectedTimeFrame == timeFrame;
 
     return ElevatedButton(
       onPressed: onPressed,
@@ -407,6 +383,10 @@ class ToggleButton extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: isSelected ? Colors.blue : Colors.grey,
         shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 38.0, vertical: 10.0),
+        textStyle: const TextStyle(
+          fontSize: 14,
+        ),
       ),
     );
   }
