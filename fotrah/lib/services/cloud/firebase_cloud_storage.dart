@@ -1,7 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 import 'package:fotrah/services/cloud/cloud_bill.dart';
 import 'package:fotrah/services/cloud/cloud_storage_exceptions.dart';
 import 'package:fotrah/enums/menu_action.dart';
+import 'package:intl/intl.dart';
+import 'package:tuple/tuple.dart';
+import 'package:collection/collection.dart';
 
 class FirebaseCloudStorage {
   static final FirebaseCloudStorage _shared =
@@ -11,6 +16,107 @@ class FirebaseCloudStorage {
 
   final bills = FirebaseFirestore.instance.collection('bill');
 
+  Future<List<BarChartGroupData>> getSpendingDataBasedOnTimeFrame(
+      String userId, TimeFrame timeFrame) async {
+    DateTime now = DateTime.now();
+    DateTime start, end;
+
+    if (timeFrame == TimeFrame.AllTime) {
+      start = DateTime(now.year - 5);
+      end = DateTime(now.year + 1, 1, 0);
+    } else if (timeFrame == TimeFrame.thisYear) {
+      start = DateTime(now.year);
+      end = DateTime(now.year + 1, 1, 0);
+    } else {
+      // TimeFrame.thisMonth
+      start = DateTime(now.year, now.month);
+      end = DateTime(now.year, now.month + 1, 0);
+    }
+
+    var querySnapshot = await FirebaseFirestore.instance
+        .collection('bill')
+        .where('userId', isEqualTo: userId)
+        .where('billDateAndTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('billDateAndTime', isLessThanOrEqualTo: Timestamp.fromDate(end))
+        .get();
+
+    List<BarChartGroupData> barGroups = [];
+    Map<int, double> totals = {};
+
+    for (var doc in querySnapshot.docs) {
+      DateTime date = (doc['billDateAndTime'] as Timestamp).toDate();
+      double total = doc['total'].toDouble();
+      int groupKey = timeFrame == TimeFrame.thisMonth ? date.day : date.month;
+
+      totals.update(groupKey, (existing) => existing + total,
+          ifAbsent: () => total);
+    }
+
+    totals.entries.forEach((entry) {
+      barGroups.add(BarChartGroupData(
+        x: entry.key,
+        barRods: [
+          BarChartRodData(
+            toY: entry.value,
+            color: Colors.blue,
+          ),
+        ],
+      ));
+    });
+
+    // Sort by the day or month key
+    barGroups.sort((a, b) => a.x.compareTo(b.x));
+
+    return barGroups;
+  }
+
+  Future<List<FlSpot>> getTotalSpendingOverTime(
+      String userId, TimeFrame timeFrame) async {
+    DateTime start, end;
+    DateTime now = DateTime.now();
+    List<FlSpot> spots = [];
+
+    switch (timeFrame) {
+      case TimeFrame.AllTime: // 5 years
+        start = DateTime(now.year - 5);
+        end = DateTime(now.year, now.month + 1).subtract(Duration(days: 1));
+        break;
+      case TimeFrame.thisYear: // only this year
+        start = DateTime(now.year);
+        end = DateTime(now.year + 1).subtract(Duration(days: 1));
+        break;
+      case TimeFrame.thisMonth:
+        start = DateTime(now.year, now.month);
+        end = DateTime(now.year, now.month + 1).subtract(Duration(days: 1));
+        break;
+    }
+    var querySnapshot = await FirebaseFirestore.instance
+        .collection('bill')
+        .where('userId', isEqualTo: userId)
+        .where('billDateAndTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('billDateAndTime', isLessThanOrEqualTo: Timestamp.fromDate(end))
+        .orderBy('billDateAndTime')
+        .get();
+    querySnapshot.docs.forEach((doc) {
+      DateTime billDate = (doc.data()['billDateAndTime'] as Timestamp).toDate();
+      double total = (doc.data()['total'] as num).toDouble();
+      double xValue;
+      if (timeFrame == TimeFrame.AllTime) {
+        xValue = (billDate.year - start.year) * 12.0 + billDate.month;
+      } else if (timeFrame == TimeFrame.thisYear) {
+        xValue = billDate.month.toDouble();
+      } else if (timeFrame == TimeFrame.thisMonth) {
+        xValue = billDate.day.toDouble();
+      } else {
+        xValue = 0;
+      }
+      spots.add(FlSpot(xValue, total));
+    });
+    return spots;
+  }
+
   Future<double> getTotalSpendingForTimeFrame(
       TimeFrame timeFrame, String userId) async {
     DateTime now = DateTime.now();
@@ -19,9 +125,9 @@ class FirebaseCloudStorage {
 
     switch (timeFrame) {
       case TimeFrame.AllTime:
-        start = DateTime(2000); 
+        start = DateTime(2000);
         end = DateTime(now.year, now.month, now.day + 1)
-            .subtract(Duration(seconds: 1)); 
+            .subtract(Duration(seconds: 1));
         break;
       case TimeFrame.thisYear:
         start = DateTime(now.year);
@@ -108,9 +214,9 @@ class FirebaseCloudStorage {
     // Adjust start and end based on the time frame
     switch (timeFrame) {
       case TimeFrame.AllTime:
-        start = DateTime(2000); 
+        start = DateTime(2000);
         end = DateTime(now.year, now.month, now.day + 1)
-            .subtract(Duration(seconds: 1)); 
+            .subtract(Duration(seconds: 1));
         break;
       case TimeFrame.thisYear:
         start = DateTime(now.year);

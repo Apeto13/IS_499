@@ -315,7 +315,7 @@ class _MainPageState extends State<MainPage> {
           ),
           Card(
             child: ListTile(
-              title: Text('Set Notification'),
+              title: Text('Set Budget'),
               trailing: Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.of(context).pushNamed(SetNotificationRoute);
