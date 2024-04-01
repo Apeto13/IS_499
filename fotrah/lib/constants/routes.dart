@@ -1,4 +1,5 @@
 
+
 const loginRoute = '/Login';
 const registerRoute = '/Register';
 const fotrahRoute = '/fotrah';
@@ -9,3 +10,4 @@ const ProfileRoute = "bills/profile";
 const SetNotificationRoute = "bills/set_notification";
 const TermsAndConditionsRoute = "bills/terms_and_conditions";
 const AnalyticsRoute = "bills/analysis";
+const ScanOrManualRoute = "bills/ScanOrManual";

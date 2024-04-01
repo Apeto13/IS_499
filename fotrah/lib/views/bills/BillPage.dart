@@ -114,7 +114,7 @@ class _MainPageState extends State<MainPage> {
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).pushNamed(newBillRoute);
+          Navigator.of(context).pushNamed(ScanOrManualRoute);
         },
         child: Icon(Icons.add),
       ),
