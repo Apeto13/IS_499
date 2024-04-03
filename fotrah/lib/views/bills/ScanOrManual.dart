@@ -47,7 +47,7 @@ class ScanOrManual extends StatelessWidget {
                 child: ListTile(
                   title: const Text('Scan Bill'),
                   onTap: () {
-                    Navigator.of(context).popAndPushNamed(fotrahRoute); 
+                    Navigator.of(context).popAndPushNamed(ScanBillRoute); 
                   },
                   trailing: const Icon(Icons.camera_alt),
                 ),

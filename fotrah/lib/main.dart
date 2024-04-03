@@ -7,6 +7,7 @@ import 'package:fotrah/views/Register_view.dart';
 import 'package:fotrah/views/Verify_email_view.dart';
 import 'package:fotrah/views/bills/BillPage.dart';
 import 'package:fotrah/views/bills/ScanOrManual.dart';
+import 'package:fotrah/views/bills/Scan_bill.dart';
 import 'package:fotrah/views/bills/analysis.dart';
 import 'package:fotrah/views/bills/bill_details.dart';
 import 'package:fotrah/views/bills/profile.dart';
@@ -36,6 +37,7 @@ void main() {
       TermsAndConditionsRoute: (context) => const TermsAndConditionsPage(),
       AnalyticsRoute:(context) => const AnalyticsPage(),
       ScanOrManualRoute:(context) => const ScanOrManual(),
+      ScanBillRoute:(context) => const ScanBillPageState(),
     },
   ));
 }

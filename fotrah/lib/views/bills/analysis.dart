@@ -269,29 +269,33 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         child: Column(
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.only(),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  ToggleButton(
-                    title: 'All Time',
-                    selectedTimeFrame: selectedTimeFrame,
-                    timeFrame: TimeFrame.AllTime,
-                    onPressed: () => setTimeFrame(TimeFrame.AllTime),
-                  ),
-                  ToggleButton(
-                    title: 'This year',
-                    selectedTimeFrame: selectedTimeFrame,
-                    timeFrame: TimeFrame.thisYear,
-                    onPressed: () => setTimeFrame(TimeFrame.thisYear),
-                  ),
-                  ToggleButton(
-                    title: 'This Month',
-                    selectedTimeFrame: selectedTimeFrame,
-                    timeFrame: TimeFrame.thisMonth,
-                    onPressed: () => setTimeFrame(TimeFrame.thisMonth),
-                  ),
-                ],
+              padding: const EdgeInsets.all(8.0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: <Widget>[
+                    ToggleButton(
+                      title: 'All Time',
+                      selectedTimeFrame: selectedTimeFrame,
+                      timeFrame: TimeFrame.AllTime,
+                      onPressed: () => setTimeFrame(TimeFrame.AllTime),
+                    ),
+                    SizedBox(width: 8), // Space between buttons
+                    ToggleButton(
+                      title: 'This Year',
+                      selectedTimeFrame: selectedTimeFrame,
+                      timeFrame: TimeFrame.thisYear,
+                      onPressed: () => setTimeFrame(TimeFrame.thisYear),
+                    ),
+                    SizedBox(width: 8), // Space between buttons
+                    ToggleButton(
+                      title: 'This Month',
+                      selectedTimeFrame: selectedTimeFrame,
+                      timeFrame: TimeFrame.thisMonth,
+                      onPressed: () => setTimeFrame(TimeFrame.thisMonth),
+                    ),
+                  ],
+                ),
               ),
             ),
             Row(

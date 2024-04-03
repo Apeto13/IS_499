@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CloudBill {
@@ -33,6 +35,34 @@ class CloudBill {
       companyId: data['companyId'] as DocumentReference,
       categoryId: data['categoryId'] as DocumentReference,
       items: data['items'] ?? [],
+    );
+  }
+
+  factory CloudBill.fromScannedData(String scannedData, String userID) {
+    final String decodedData = utf8.decode(base64.decode(scannedData));
+    final List<String> parts =
+        decodedData.split('|'); 
+    final String storeName = parts[0];
+    final DateTime date = DateTime.parse(parts[1]);
+    final double total = double.parse(parts[2]);
+
+    final DocumentReference companyId =
+        FirebaseFirestore.instance.collection('company').doc(storeName);
+
+    // Placeholder for categoryId, assuming a default category
+    final DocumentReference categoryId = 'Other' as DocumentReference;
+
+    return CloudBill(
+      id: FirebaseFirestore.instance
+          .collection('bill')
+          .doc()
+          .id, // Generating new ID
+      companyId: companyId,
+      categoryId: categoryId,
+      billDateAndTime: Timestamp.fromDate(date),
+      userId: userID, 
+      total: total,
+      items: [], 
     );
   }
 
