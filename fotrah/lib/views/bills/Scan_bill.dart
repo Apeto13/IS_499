@@ -83,39 +83,66 @@ class _ScanBillPageStateState extends State<ScanBillPageState> {
     );
   }
 
-  bool isNavigating = false;
-
   void _onQRViewCreated(QRViewController controller) async {
     this.controller = controller;
     controller.scannedDataStream.listen((scanData) {
-      if (!isNavigating) {
-        isNavigating = true;
-        final String scannedData = scanData.code ?? "";
-        final String decodedData = utf8.decode(base64.decode(scannedData));
-        print("Encoded: $scannedData, Decoded: $decodedData");
+      print("Scan attempt detected");
 
-        final RegExp regex = RegExp(
-            r'^\x01\x0F(.*?)\x02\x0F(.*?)\x03\x14(.*?)\x04\x06(.*?)\x05\x05(.*?)$');
+      final String scannedData = scanData.code ?? "";
+      final String decodedData = utf8.decode(base64.decode(scannedData));
+      print("Encoded: $scannedData, Decoded: $decodedData");
 
-        final Match? match = regex.firstMatch(decodedData);
-        if (match != null && match.groupCount >= 4) {
-          final String storeName = match.group(1)!;
-          final String date = match.group(3)!;
-          final String total = match.group(4)!;
-          Navigator.of(context).pushNamed(
-            BillDetailRoute,
-            arguments: {
-              'storeName': storeName,
-              'date': date,
-              'total': total,
-            },
-          );
-          Future.delayed(Duration(seconds: 1), () {
-            isNavigating = false;
-          });
-        } else {
-          print('Invalid QR code format');
-        }
+      // Adjusted RegExp to loosely match date and total based on their unique formats
+      final RegExp regex = RegExp(
+          r'(.*?)(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{2}:\d{2})Z.*?(\d+\.\d+)');
+
+      final Match? match = regex.firstMatch(decodedData);
+      // print("(1) ");
+      //print(match!.group(1));
+      //print("(2) ");
+      //print(match!.group(2));
+      //print("(3) ");
+      //print(match!.group(3));
+      if (match != null) {
+        final String storeName = match.group(1)!.trim();
+        // Original date string from the regex match
+        String dateString = match.group(2)!;
+
+        // Function to ensure two digits
+        String formatTwoDigits(int n) => n.toString().padLeft(2, '0');
+
+        // Split the date string to components
+        List<String> dateParts = dateString.split('-');
+        List<String> timeParts = dateParts[2].split('T')[1].split(':');
+
+        // Ensure month, day, hour, and minute are two digits
+        String month = formatTwoDigits(int.parse(dateParts[1]));
+        String day = formatTwoDigits(int.parse(dateParts[2].split('T')[0]));
+        String hour = formatTwoDigits(int.parse(timeParts[0]));
+        String minute = timeParts[1];
+        String second = timeParts[2];
+
+        // Reconstruct the date string in ISO 8601 format
+        String formattedDateStr =
+            "${dateParts[0]}-$month-$day" + "T$hour:$minute:$second";
+
+        // Now you can safely parse the date
+        DateTime date = DateTime.parse(formattedDateStr);
+        final String total = match.group(3)!;
+        print("(1) ");
+        print("$storeName, $formattedDateStr, $total");
+        print("(2) ");
+        print("$storeName, $date, $total");
+        Navigator.of(context).pushNamed(
+          BillDetailRoute,
+          arguments: {
+            'storeName': storeName,
+            'date': date,
+            'total': total,
+          },
+        );
+      } else {
+        print('Invalid QR code format');
       }
     });
   }

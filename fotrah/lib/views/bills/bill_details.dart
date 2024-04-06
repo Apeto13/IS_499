@@ -63,17 +63,31 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
         final Map<String, dynamic>? argument =
             ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
         if (argument != null) {
-          final String storeName = arguments['storeName'];
-          final DateTime date = DateTime.parse(argument['date']);
-          print("QR Date String: ${argument['date']}");
-          final String formattedDate =
-              DateFormat('dd/MM/yyyy HH:mm').format(date);
+          final String storeName = argument['storeName'];
+          String formattedDate = "";
+          if (argument['date'] is DateTime) {
+            // If 'date' is already a DateTime object, format it to a string
+            DateTime date = argument['date'];
+            formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(date);
+          } else if (argument['date'] is String) {
+            // If 'date' is a string, you can use it directly or parse it if needed
+            formattedDate = argument['date'];
+          } else {
+            // Handle other types or set a default value for dateString if necessary
+            formattedDate = "Unknown date";
+          }
+
+          final String total = argument['total'].toString();
+          print("This is bill details");
+          print(total);
+          print(storeName);
           print(formattedDate);
-          final String total = arguments['total'];
           setState(() {
             _coNameController.text = storeName;
-            _dateAndTimeController.text = formattedDate;
-            _totalController.text = total.toString();
+            _dateAndTimeController.text =
+                formattedDate; // Use the formatted date string
+            _totalController.text =
+                total; // Total as string, directly from the map
           });
         }
       }
@@ -185,7 +199,7 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
         Navigator.of(context).pushNamed(fotrahRoute);
       } catch (e) {
         ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to create bill: $e')));
+            .showSnackBar(SnackBar(content: Text('Failed to create bill: $e')));
       }
     }
   }
