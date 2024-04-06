@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/services/cloud/cloud_bill.dart';
@@ -35,26 +36,46 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
     fetchCategories();
     // Asynchronously fetch the bill details and update the UI accordingly
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final CloudBill? bill =
-          ModalRoute.of(context)?.settings.arguments as CloudBill?;
-      if (bill != null) {
-        _currentBill = bill;
-        _selectedBillDateTime = bill.billDateAndTime.toDate();
-        String formattedDate =
-            DateFormat('dd/MM/yyyy HH:mm').format(_selectedBillDateTime!);
-        String companyName = await _cloudStorage.getCompanyName(bill.companyId);
-        String categoryName =
-            await _cloudStorage.getCategoryName(bill.categoryId);
-        List<Map<String, dynamic>> items = List.from(bill.items);
+      final arguments = ModalRoute.of(context)?.settings.arguments;
+      if (arguments is CloudBill) {
+        final CloudBill? bill =
+            ModalRoute.of(context)?.settings.arguments as CloudBill?;
+        if (bill != null) {
+          _currentBill = bill;
+          _selectedBillDateTime = bill.billDateAndTime.toDate();
+          String formattedDate =
+              DateFormat('dd/MM/yyyy HH:mm').format(_selectedBillDateTime!);
+          String companyName =
+              await _cloudStorage.getCompanyName(bill.companyId);
+          String categoryName =
+              await _cloudStorage.getCategoryName(bill.categoryId);
+          List<Map<String, dynamic>> items = List.from(bill.items);
 
-        // Use setState to update the UI with the fetched details
-        setState(() {
-          _dateAndTimeController.text = formattedDate;
-          _coNameController.text = companyName;
-          _cateNameController.text = categoryName;
-          _totalController.text = bill.total.toString();
-          _items = items;
-        });
+          setState(() {
+            _dateAndTimeController.text = formattedDate;
+            _coNameController.text = companyName;
+            _cateNameController.text = categoryName;
+            _totalController.text = bill.total.toString();
+            _items = items;
+          });
+        }
+      } else if (arguments is Map) {
+        final Map<String, dynamic>? argument =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        if (argument != null) {
+          final String storeName = arguments['storeName'];
+          final DateTime date = DateTime.parse(argument['date']);
+          print("QR Date String: ${argument['date']}");
+          final String formattedDate =
+              DateFormat('dd/MM/yyyy HH:mm').format(date);
+          print(formattedDate);
+          final String total = arguments['total'];
+          setState(() {
+            _coNameController.text = storeName;
+            _dateAndTimeController.text = formattedDate;
+            _totalController.text = total.toString();
+          });
+        }
       }
     });
   }
@@ -119,26 +140,53 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
   }
 
   Future<void> _updateBill() async {
-    final String categoryId = _selectedCategoryId ?? 'Other';
-    final bill = ModalRoute.of(context)?.settings.arguments as CloudBill;
-    double? total = double.tryParse(_totalController.text);
-    final Timestamp billDateTime =
-        Timestamp.fromDate(_selectedBillDateTime ?? DateTime.now());
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    CloudBill billToUpdate;
+    if (arguments is CloudBill) {
+      final String categoryId = _selectedCategoryId ?? 'Other';
+      final bill = ModalRoute.of(context)?.settings.arguments as CloudBill;
+      double? total = double.tryParse(_totalController.text);
+      final Timestamp billDateTime =
+          Timestamp.fromDate(_selectedBillDateTime ?? DateTime.now());
 
-    try {
-      await _cloudStorage.updateBill(
-        billId: bill.id,
-        total: total,
-        billDateTime: billDateTime,
-        categoryId: categoryId,
-        items: _items,
-      );
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Bill updated successfully')));
-      Navigator.of(context).pushNamed(fotrahRoute);
-    } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to update bill: $e')));
+      try {
+        await _cloudStorage.updateBill(
+          billId: bill.id,
+          total: total,
+          billDateTime: billDateTime,
+          categoryId: categoryId,
+          items: _items,
+        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Bill updated successfully')));
+        Navigator.of(context).pushNamed(fotrahRoute);
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed to update bill: $e')));
+      }
+    } else if (arguments is Map) {
+      final userId = FirebaseAuth.instance.currentUser?.email;
+      if (userId == null) return;
+      double? total = double.tryParse(_totalController.text);
+      if (total == null) return;
+      final String categoryId = _selectedCategoryId ?? 'Other';
+      final Timestamp billDateTime =
+          Timestamp.fromDate(_selectedBillDateTime ?? DateTime.now());
+      try {
+        await _cloudStorage.createNewBill(
+            userId: userId,
+            total: total,
+            billDateTime: billDateTime,
+            coName: _coNameController.text,
+            categoryId: categoryId,
+            items: _items);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Bill created successfully')));
+        Navigator.of(context).pushNamed(fotrahRoute);
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to create bill: $e')));
+      }
     }
   }
 
@@ -202,7 +250,7 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "Edit Bill",
+          "Bill Details",
           style: TextStyle(
             fontSize: 25.0,
             fontWeight: FontWeight.bold,

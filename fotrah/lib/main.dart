@@ -20,7 +20,7 @@ import 'views/bills/new_bill_view.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(MaterialApp(
-    title: 'Flutter Demo',
+    title: '',
     theme: ThemeData(
       primarySwatch: Colors.blue,
     ),

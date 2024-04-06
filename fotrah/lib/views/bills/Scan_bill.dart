@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fotrah/constants/routes.dart';
 import 'package:fotrah/services/cloud/cloud_bill.dart';
+import 'package:intl/intl.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
@@ -82,22 +83,41 @@ class _ScanBillPageStateState extends State<ScanBillPageState> {
     );
   }
 
-  void _onQRViewCreated(QRViewController controller) {
-    void _onQRViewCreated(QRViewController controller) {
-      this.controller = controller;
-      controller.scannedDataStream.listen((scanData) {
-        final userId = FirebaseAuth.instance.currentUser!.email;
+  bool isNavigating = false;
+
+  void _onQRViewCreated(QRViewController controller) async {
+    this.controller = controller;
+    controller.scannedDataStream.listen((scanData) {
+      if (!isNavigating) {
+        isNavigating = true;
         final String scannedData = scanData.code ?? "";
+        final String decodedData = utf8.decode(base64.decode(scannedData));
+        print("Encoded: $scannedData, Decoded: $decodedData");
 
-        final CloudBill scannedBill =
-            CloudBill.fromScannedData(scannedData, userId!);
+        final RegExp regex = RegExp(
+            r'^\x01\x0F(.*?)\x02\x0F(.*?)\x03\x14(.*?)\x04\x06(.*?)\x05\x05(.*?)$');
 
-        Navigator.of(context).pushReplacementNamed(
-          BillDetailRoute,
-          arguments: scannedBill,
-        );
-      });
-    }
+        final Match? match = regex.firstMatch(decodedData);
+        if (match != null && match.groupCount >= 4) {
+          final String storeName = match.group(1)!;
+          final String date = match.group(3)!;
+          final String total = match.group(4)!;
+          Navigator.of(context).pushNamed(
+            BillDetailRoute,
+            arguments: {
+              'storeName': storeName,
+              'date': date,
+              'total': total,
+            },
+          );
+          Future.delayed(Duration(seconds: 1), () {
+            isNavigating = false;
+          });
+        } else {
+          print('Invalid QR code format');
+        }
+      }
+    });
   }
 
   @override
