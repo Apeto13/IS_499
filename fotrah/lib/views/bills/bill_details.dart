@@ -66,14 +66,11 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
           final String storeName = argument['storeName'];
           String formattedDate = "";
           if (argument['date'] is DateTime) {
-            // If 'date' is already a DateTime object, format it to a string
             DateTime date = argument['date'];
             formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(date);
           } else if (argument['date'] is String) {
-            // If 'date' is a string, you can use it directly or parse it if needed
             formattedDate = argument['date'];
           } else {
-            // Handle other types or set a default value for dateString if necessary
             formattedDate = "Unknown date";
           }
 
@@ -85,9 +82,9 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
           setState(() {
             _coNameController.text = storeName;
             _dateAndTimeController.text =
-                formattedDate; // Use the formatted date string
+                formattedDate; 
             _totalController.text =
-                total; // Total as string, directly from the map
+                total;
           });
         }
       }
@@ -103,18 +100,15 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
   }
 
   void fetchCategories() async {
-    // Fetch the document that contains the list of category names
     final snapshot = await FirebaseFirestore.instance
         .collection('category')
         .doc('categoryId')
         .get();
     final data = snapshot.data();
     final List<dynamic> categories = data?['cateNames'] ?? [];
-
-    // Update the state with fetched category names
     setState(() {
       _categoryNames = List<String>.from(
-          categories); // This ensures we have a list of strings
+          categories); 
     });
   }
 
@@ -155,9 +149,10 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
 
   Future<void> _updateBill() async {
     final arguments = ModalRoute.of(context)?.settings.arguments;
-    CloudBill billToUpdate;
+    //CloudBill billToUpdate;
     if (arguments is CloudBill) {
       final String categoryId = _selectedCategoryId ?? 'Other';
+      final String companyId = _coNameController.text;
       final bill = ModalRoute.of(context)?.settings.arguments as CloudBill;
       double? total = double.tryParse(_totalController.text);
       final Timestamp billDateTime =
@@ -169,6 +164,7 @@ class _BillDetailsPageState extends State<BillDetailsPage> {
           total: total,
           billDateTime: billDateTime,
           categoryId: categoryId,
+          companyId: companyId,
           items: _items,
         );
         ScaffoldMessenger.of(context)

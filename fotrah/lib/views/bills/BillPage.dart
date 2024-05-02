@@ -19,6 +19,8 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   late final FirebaseCloudStorage _cloudStorage;
   late String _userId;
+  late TextEditingController _searchController;
+  List<CloudBill>? _searchResults;
 
   // UI
   int _currentIndex = 0;
@@ -32,6 +34,7 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     _cloudStorage = FirebaseCloudStorage();
+    _searchController = TextEditingController();
     super.initState();
     _initializeUser();
   }
@@ -39,9 +42,18 @@ class _MainPageState extends State<MainPage> {
   Future<void> _initializeUser() async {
     final user = AuthService.firebase().currentUser?.email;
     if (user != null) {
-      _userId = user; // Here we fetch and store the user's UID
-      setState(() {}); // Trigger a rebuild if needed
+      _userId = user;
+      setState(() {});
     }
+  }
+
+  Future<void> _onSearch(String value) async {
+    print("Search for: $value");
+    final List<CloudBill> searchResults =
+        await _cloudStorage.getBillsByCompanyName(value);
+    setState(() {
+      _searchResults = searchResults;
+    });
   }
 
   Future<void> _showDeleteConfirmationDialog(
@@ -68,11 +80,9 @@ class _MainPageState extends State<MainPage> {
       ),
     );
 
-    // If confirmed, delete the bill and refresh the list (if needed)
     if (shouldDelete ?? false) {
       await _cloudStorage.deleteBill(billId: billId);
-      setState(
-          () {}); // This will refresh the UI if your list is built within this Widget.
+      setState(() {});
     }
   }
 
@@ -170,70 +180,141 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  Widget _buildSearchResultsList(List<CloudBill> searchResults) {
+    return ListView.builder(
+      itemCount: searchResults.length,
+      itemBuilder: (context, index) {
+        final bill = searchResults[index];
+        return FutureBuilder<String>(
+          future: _cloudStorage.getCompanyName(bill.companyId),
+          builder: (context, companySnapshot) {
+            String companyName = companySnapshot.data ?? "Unknown Store";
+            DateTime billDate = bill.billDateAndTime.toDate();
+            String formattedDate =
+                DateFormat('dd/MM/yyyy HH:mm').format(billDate);
+            return Card(
+              elevation: 4,
+              margin: const EdgeInsets.all(8),
+              child: ListTile(
+                title: Text(companyName,
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(
+                    "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
+                trailing: Wrap(
+                  spacing: 12,
+                  children: <Widget>[
+                    IconButton(
+                      icon: Icon(Icons.visibility,
+                          color: Theme.of(context).primaryColor),
+                      onPressed: () {
+                        Navigator.of(context).pushNamed(
+                          BillDetailRoute,
+                          arguments: bill,
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete, color: Colors.red),
+                      onPressed: () =>
+                          _showDeleteConfirmationDialog(context, bill.id),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildBody() {
     if (_currentIndex == 0) {
-      return FutureBuilder<List<CloudBill>>(
-        future: _cloudStorage.getBillsForUser(userId: _userId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          } else if (snapshot.hasData) {
-            final billsList = snapshot.data!;
-            if (billsList.isEmpty) {
-              return const Center(child: Text("No bills available"));
-            }
-            return ListView.builder(
-              itemCount: billsList.length,
-              itemBuilder: (context, index) {
-                final bill = billsList[index];
-                return FutureBuilder<String>(
-                  future: _cloudStorage.getCompanyName(bill.companyId),
-                  builder: (context, companySnapshot) {
-                    String companyName =
-                        companySnapshot.data ?? "Unknown Company";
-                    DateTime billDate = bill.billDateAndTime.toDate();
-                    String formattedDate =
-                        DateFormat('dd/MM/yyyy HH:mm').format(billDate);
-                    return Card(
-                      elevation: 4,
-                      margin: const EdgeInsets.all(8),
-                      child: ListTile(
-                        title: Text(companyName,
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                            "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
-                        trailing: Wrap(
-                          spacing: 12,
-                          children: <Widget>[
-                            IconButton(
-                              icon: Icon(Icons.visibility,
-                                  color: Theme.of(context).primaryColor),
-                              onPressed: () {
-                                Navigator.of(context).pushNamed(
-                                  BillDetailRoute,
-                                  arguments: bill,
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _showDeleteConfirmationDialog(
-                                  context, bill.id),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: const InputDecoration(
+                labelText: 'Search by Store name',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                _onSearch(value);
               },
-            );
-          } else {
-            return const Center(child: Text("No bills available"));
-          }
-        },
+            ),
+          ),
+          Expanded(
+            child:_searchResults != null
+              ? _buildSearchResultsList(_searchResults!)
+              : FutureBuilder<List<CloudBill>>(
+              future: _cloudStorage.getBillsForUser(userId: _userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                } else if (snapshot.hasData) {
+                  final billsList = snapshot.data!;
+                  if (billsList.isEmpty) {
+                    return Center(child: Text("No bills available"));
+                  }
+                  return ListView.builder(
+                    itemCount: billsList.length,
+                    itemBuilder: (context, index) {
+                      final bill = billsList[index];
+                      return FutureBuilder<String>(
+                        future: _cloudStorage.getCompanyName(bill.companyId),
+                        builder: (context, companySnapshot) {
+                          String companyName =
+                              companySnapshot.data ?? "Unknown Store";
+                          DateTime billDate = bill.billDateAndTime.toDate();
+                          String formattedDate =
+                              DateFormat('dd/MM/yyyy HH:mm').format(billDate);
+                          return Card(
+                            elevation: 4,
+                            margin: const EdgeInsets.all(8),
+                            child: ListTile(
+                              title: Text(companyName,
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                  "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
+                              trailing: Wrap(
+                                spacing: 12,
+                                children: <Widget>[
+                                  IconButton(
+                                    icon: Icon(Icons.visibility,
+                                        color: Theme.of(context).primaryColor),
+                                    onPressed: () {
+                                      Navigator.of(context).pushNamed(
+                                        BillDetailRoute,
+                                        arguments: bill,
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () =>
+                                        _showDeleteConfirmationDialog(
+                                            context, bill.id),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                } else {
+                  return Center(child: Text("No bills available"));
+                }
+              },
+            ),
+          ),
+        ],
       );
     } else if (_currentIndex == 2) {
       final String userId = AuthService.firebase().currentUser!.email;
@@ -245,16 +326,15 @@ class _MainPageState extends State<MainPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasData && snapshot.data!) {
-            return  Center(
+            return Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Card(
-                  elevation: 4, // Adds shadow to the card
+                  elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
-                      mainAxisSize: MainAxisSize
-                          .min, // Minimize the column's size to fit its children
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text(
                           'Budget Alert',
@@ -284,7 +364,8 @@ class _MainPageState extends State<MainPage> {
                                     .white, // Optional: Change background color
                               ),
                             );
-                            Navigator.of(context).pushNamed(SetNotificationRoute);
+                            Navigator.of(context)
+                                .pushNamed(SetNotificationRoute);
                           },
                           child: const Text('Check Budget'),
                         ),
@@ -348,68 +429,91 @@ class _MainPageState extends State<MainPage> {
         ],
       );
     } else {
-      return FutureBuilder<List<CloudBill>>(
-        future: _cloudStorage.getBillsForUser(userId: _userId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          } else if (snapshot.hasData) {
-            final billsList = snapshot.data!;
-            if (billsList.isEmpty) {
-              return const Center(child: Text("No bills available"));
-            }
-            return ListView.builder(
-              itemCount: billsList.length,
-              itemBuilder: (context, index) {
-                final bill = billsList[index];
-                return FutureBuilder<String>(
-                  future: _cloudStorage.getCompanyName(bill.companyId),
-                  builder: (context, companySnapshot) {
-                    String companyName =
-                        companySnapshot.data ?? "Unknown Company";
-                    DateTime billDate = bill.billDateAndTime.toDate();
-                    String formattedDate =
-                        DateFormat('dd/MM/yyyy HH:mm').format(billDate);
-                    return Card(
-                      elevation: 4,
-                      margin: const EdgeInsets.all(8),
-                      child: ListTile(
-                        title: Text(companyName,
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                            "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
-                        trailing: Wrap(
-                          spacing: 12, // space between two icons
-                          children: <Widget>[
-                            IconButton(
-                              icon: Icon(Icons.visibility,
-                                  color: Theme.of(context).primaryColor),
-                              onPressed: () {
-                                Navigator.of(context).pushNamed(
-                                  BillDetailRoute,
-                                  arguments: bill,
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _showDeleteConfirmationDialog(
-                                  context, bill.id),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                labelText: 'Search by Store name',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                _onSearch(value);
               },
-            );
-          } else {
-            return const Center(child: Text("No bills available"));
-          }
-        },
+            ),
+          ),
+          Expanded(
+            child: _searchResults != null
+              ? _buildSearchResultsList(_searchResults!)
+              : FutureBuilder<List<CloudBill>>(
+              future: _cloudStorage.getBillsForUser(userId: _userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                } else if (snapshot.hasData) {
+                  final billsList = snapshot.data!;
+                  if (billsList.isEmpty) {
+                    return Center(child: Text("No bills available"));
+                  }
+                  return ListView.builder(
+                    itemCount: billsList.length,
+                    itemBuilder: (context, index) {
+                      final bill = billsList[index];
+                      return FutureBuilder<String>(
+                        future: _cloudStorage.getCompanyName(bill.companyId),
+                        builder: (context, companySnapshot) {
+                          String companyName =
+                              companySnapshot.data ?? "Unknown Company";
+                          DateTime billDate = bill.billDateAndTime.toDate();
+                          String formattedDate =
+                              DateFormat('dd/MM/yyyy HH:mm').format(billDate);
+                          return Card(
+                            elevation: 4,
+                            margin: const EdgeInsets.all(8),
+                            child: ListTile(
+                              title: Text(companyName,
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(
+                                  "Total: ${bill.total.toStringAsFixed(2)}\nDate: $formattedDate"),
+                              trailing: Wrap(
+                                spacing: 12,
+                                children: <Widget>[
+                                  IconButton(
+                                    icon: Icon(Icons.visibility,
+                                        color: Theme.of(context).primaryColor),
+                                    onPressed: () {
+                                      Navigator.of(context).pushNamed(
+                                        BillDetailRoute,
+                                        arguments: bill,
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () =>
+                                        _showDeleteConfirmationDialog(
+                                            context, bill.id),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                } else {
+                  return Center(child: Text("No bills available"));
+                }
+              },
+            ),
+          ),
+        ],
       );
     }
   }

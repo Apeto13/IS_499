@@ -4,17 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:fotrah/services/cloud/cloud_bill.dart';
 import 'package:fotrah/services/cloud/cloud_storage_exceptions.dart';
 import 'package:fotrah/enums/menu_action.dart';
-import 'package:intl/intl.dart';
-import 'package:tuple/tuple.dart';
-import 'package:collection/collection.dart';
+// import 'package:intl/intl.dart';
+// import 'package:tuple/tuple.dart';
+// import 'package:collection/collection.dart';
 
 class FirebaseCloudStorage {
   static final FirebaseCloudStorage _shared =
       FirebaseCloudStorage._sharedInstance();
   FirebaseCloudStorage._sharedInstance();
-  factory FirebaseCloudStorage() => _shared; 
+  factory FirebaseCloudStorage() => _shared;
 
   final bills = FirebaseFirestore.instance.collection('bill');
+
+  Future<List<CloudBill>> getBillsByCompanyName(String companyName) async {
+    try {
+      print(companyName);
+      final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('bill')
+          .where('companyId', isEqualTo: companyName)
+          .get();
+      final List<CloudBill> bills = querySnapshot.docs.map((doc) {
+        return CloudBill.fromSnapshot(doc);
+      }).toList();
+      print(bills);
+      return bills;
+    } catch (e) {
+      print("Error fetching bills by company name: $e");
+      return [];
+    }
+  }
 
   Future<List<BarChartGroupData>> getSpendingDataBasedOnTimeFrame(
       String userId, TimeFrame timeFrame) async {
@@ -405,15 +423,19 @@ class FirebaseCloudStorage {
     try {
       DocumentSnapshot companyDoc = await companyRef.get();
       if (companyDoc.exists) {
-        Map<String, dynamic> companyData =
-            companyDoc.data() as Map<String, dynamic>;
-        return companyData['coName'] ?? "Unknown Company";
+        Map<String, dynamic>? companyData =
+            companyDoc.data() as Map<String, dynamic>?;
+        if (companyData != null && companyData.containsKey('coName')) {
+          return companyData['coName'] ?? "Unknown Company";
+        } else {
+          return "Field 'coName' not found in document";
+        }
       } else {
-        return "Unknown Company";
+        return "Document does not exist";
       }
     } catch (e) {
       print("Error fetching company name: $e");
-      return "Error";
+      return "Error Fetching Name"; // Handle any errors gracefully
     }
   }
 
@@ -504,11 +526,27 @@ class FirebaseCloudStorage {
     double? total,
     Timestamp? billDateTime,
     String? categoryId,
+    String? companyId,
     List<Map<String, dynamic>>? items,
   }) async {
     try {
       final billDocRef =
           FirebaseFirestore.instance.collection('bill').doc(billId);
+
+      // Fetch the bill document
+      final billDocSnapshot = await billDocRef.get();
+      if (!billDocSnapshot.exists) {
+        throw Exception("Bill document not found");
+      }
+      final currentCompanyId =
+          billDocSnapshot.data()?['companyId'] as DocumentReference?;
+      String currentCompanyName = '';
+      if (currentCompanyId != null) {
+        await currentCompanyId.delete();
+      }
+      if (companyId != null) {
+        await createCompany(companyId);
+      }
 
       Map<String, Object?> updates = {};
       if (total != null) updates['total'] = total;
@@ -516,6 +554,9 @@ class FirebaseCloudStorage {
       if (categoryId != null)
         updates['categoryId'] =
             FirebaseFirestore.instance.collection('category').doc(categoryId);
+      if (companyId != null)
+        updates['companyId'] =
+            FirebaseFirestore.instance.collection('company').doc(companyId);
       if (items != null) {
         updates['items'] = items
             .map((item) => {
@@ -526,12 +567,13 @@ class FirebaseCloudStorage {
                 })
             .toList();
       }
-
+      print("post-company name: $companyId");
+      print("pre-company name: $currentCompanyName");
       await billDocRef.update(updates);
       print("Bill updated successfully.");
     } catch (e) {
       print("Error updating bill: $e");
-      throw CouldNotUpdateBillException(); // Ensure this exception is defined
+      throw CouldNotUpdateBillException();
     }
   }
 
