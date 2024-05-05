@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fotrah/services/cloud/cloud_bill.dart';
 import 'package:fotrah/services/cloud/cloud_storage_exceptions.dart';
 import 'package:fotrah/enums/menu_action.dart';
+
 // import 'package:intl/intl.dart';
 // import 'package:tuple/tuple.dart';
 // import 'package:collection/collection.dart';
@@ -83,7 +84,7 @@ class FirebaseCloudStorage {
       ));
     });
 
-    // Sort by the day or month key
+
     barGroups.sort((a, b) => a.x.compareTo(b.x));
 
     return barGroups;
@@ -229,7 +230,6 @@ class FirebaseCloudStorage {
     DateTime start;
     DateTime end;
 
-    // Adjust start and end based on the time frame
     switch (timeFrame) {
       case TimeFrame.AllTime:
         start = DateTime(2000);
@@ -308,7 +308,7 @@ class FirebaseCloudStorage {
     for (var doc in querySnapshot.docs) {
       final docData = doc.data() as Map<String, dynamic>;
       final total =
-          docData['total'] as num?; // Assuming 'total' is stored as a number
+          docData['total'] as num?; 
       if (total != null) {
         totalSpent += total.toDouble();
       }
@@ -325,10 +325,10 @@ class FirebaseCloudStorage {
       return {
         'userName': userData['userName'],
         'phoneNumber': userData['phoneNumber'],
-        'email': userSnapshot.id, // ID of the document is the email
+        'email': userSnapshot.id, 
       };
     } else {
-      throw CouldNotGetUserInfoException(); // Make sure to define this exception
+      throw CouldNotGetUserInfoException(); 
     }
   }
 
@@ -348,7 +348,7 @@ class FirebaseCloudStorage {
       print("User details updated successfully.");
     } catch (e) {
       print("Error updating user details: $e");
-      throw CouldNotUpdateUserException(); // Make sure to define this exception
+      throw CouldNotUpdateUserException(); 
     }
   }
 
@@ -376,7 +376,7 @@ class FirebaseCloudStorage {
     if (!companyDoc.exists) {
       await companyRef.set({'coName': coName});
     }
-    return companyRef; // Returns a reference to the company document
+    return companyRef; 
   }
 
   Future<DocumentReference> createCategory(String cateName) async {
@@ -385,9 +385,9 @@ class FirebaseCloudStorage {
     final categoryDoc = await categoryRef.get();
     if (!categoryDoc.exists) {
       await categoryRef.set(
-          {'cateName': cateName}); // Add any other category fields you need
+          {'cateName': cateName}); 
     }
-    return categoryRef; // Returns a reference to the category document
+    return categoryRef; 
   }
 
   Future<String> getCompanyId(DocumentReference companyRef) async {
@@ -395,13 +395,13 @@ class FirebaseCloudStorage {
       final docSnapshot = await companyRef.get();
       if (docSnapshot.exists) {
         return docSnapshot
-            .id; // or docSnapshot.data()['someFieldName'] if you need a specific field
+            .id; 
       } else {
-        throw CouldNotFindCompanyException(); // Custom exception, ensure you define it
+        throw CouldNotFindCompanyException(); 
       }
     } catch (e) {
       print('Error fetching company ID: $e');
-      throw CouldNotFindCompanyException(); // Use a more specific exception if necessary
+      throw CouldNotFindCompanyException();
     }
   }
 
@@ -409,13 +409,13 @@ class FirebaseCloudStorage {
     try {
       final docSnapshot = await categoryRef.get();
       if (docSnapshot.exists) {
-        return docSnapshot.id; // Or any specific field from the document
+        return docSnapshot.id; 
       } else {
-        throw CouldNotFindCategoryException(); // Custom exception, ensure you define it
+        throw CouldNotFindCategoryException(); 
       }
     } catch (e) {
       print('Error fetching category ID: $e');
-      throw CouldNotFindCategoryException(); // Use a more specific exception if necessary
+      throw CouldNotFindCategoryException(); 
     }
   }
 
@@ -435,7 +435,7 @@ class FirebaseCloudStorage {
       }
     } catch (e) {
       print("Error fetching company name: $e");
-      return "Error Fetching Name"; // Handle any errors gracefully
+      return "Error Fetching Name"; 
     }
   }
 
@@ -446,13 +446,13 @@ class FirebaseCloudStorage {
         Map<String, dynamic> data =
             categorySnapshot.data() as Map<String, dynamic>;
         return data['cateName'] ??
-            "Unknown Category"; // Assuming 'cateName' is the field
+            "Unknown Category";
       } else {
-        return "Unknown Category"; // Handle case where the document does not exist
+        return "Unknown Category"; 
       }
     } catch (e) {
       print("Error fetching category name: $e");
-      return "Error Fetching Name"; // Handle any errors gracefully
+      return "Error Fetching Name"; 
     }
   }
 
@@ -465,10 +465,8 @@ class FirebaseCloudStorage {
     required List<Map<String, dynamic>> items,
   }) async {
     try {
-      // Create company and get their references
       final companyRef = await createCompany(coName);
 
-      // Assuming categories are pre-defined and you have their IDs
       final categoryRef =
           FirebaseFirestore.instance.collection('category').doc(categoryId);
 
@@ -602,4 +600,5 @@ class FirebaseCloudStorage {
       throw CouldNotDeleteBillException(); // Make sure this exception is defined somewhere
     }
   }
+
 }
