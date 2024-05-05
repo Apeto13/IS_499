@@ -232,19 +232,19 @@ class _MainPageState extends State<MainPage> {
     if (_currentIndex == 0) {
       return Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Search by Store name',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) {
-                _onSearch(value);
-              },
-            ),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.all(8.0),
+          //   child: TextField(
+          //     decoration: const InputDecoration(
+          //       labelText: 'Search by Store name',
+          //       prefixIcon: Icon(Icons.search),
+          //       border: OutlineInputBorder(),
+          //     ),
+          //     onChanged: (value) {
+          //       _onSearch(value);
+          //     },
+          //   ),
+          // ),
           Expanded(
             child:_searchResults != null
               ? _buildSearchResultsList(_searchResults!)
